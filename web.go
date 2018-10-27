@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -44,62 +43,37 @@ func middlewareCORS(next http.Handler) http.Handler {
 
 func webGetTree(w http.ResponseWriter, r *http.Request) {
 	t := GetEpTree()
+	info := new(TablesInfo)
 
-	for _, node := range t.TreeItem {
-		if len(node.TableID) != 4 {
-			continue
-		}
-		id, err := strconv.Atoi(node.TableID)
-		if err != nil {
-			log.Println(err)
-		}
-
-		info := new(TablesInfo)
-
-		if err := info.GetTables(); err != nil {
-			log.Fatal(err)
-		}
-
-		for _, region := range *info {
-
-			if id == region.ID {
-				node.Name = region.VisName
-			}
-
-		}
-
-		if len(t.TreeItem) != 0 {
-			ChangeName(node, info)
-		}
+	if err := info.GetTables(); err != nil {
+		log.Fatal(err)
 	}
 
+	ChangeName(t.TreeItem, info)
+
 	encoder := json.NewEncoder(w)
-	encoder.Encode(t)
+	if err := encoder.Encode(t); err != nil {
+		GetConfig().Err.Printf("[WEB] error encod json %v", err)
+	}
 
 }
 
-func ChangeName(t *nodeEpTree, table *TablesInfo) {
-	for _, node := range t.TreeItem {
-		if len(node.TableID) != 4 {
-			continue
-		}
+func ChangeName(t []*nodeEpTree, table *TablesInfo) {
+	for _, node := range t {
 
-		id, err := strconv.Atoi(node.TableID)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-
-		for _, region := range *table {
-			if id == region.ID {
-				node.Name = region.VisName
-				fmt.Println(id, region.VisName)
+		if node.Name == "" {
+			id, err := strconv.Atoi(node.TableID)
+			if err != nil {
+				log.Println(err)
 			}
+
+			if table, ok := (*table)[id]; ok {
+				node.Name = table.VisName
+			}
+
 		}
 
-		if len(t.TreeItem) != 0 {
-			ChangeName(node, table)
-		}
+		ChangeName(node.TreeItem, table)
 	}
 
 }

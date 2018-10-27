@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	SQLGetTables  = `SELECT Table_ID, DB_Name, VisName FROM krasecology.eco_2018.Table_0_1_Tables;`
+	SQLGetTables  = `SELECT ID_EP_Table, DBName, VisName FROM krasecology.eco.EP_Table;`
 	SQLGetRegions = "SELECT id, num_region, name, CAST(IIF ( is_town = 1, 1, 0 ) AS BIT) AS is_town from krasecology.eco_2018.Table_0_0_Regions"
 )
 
@@ -53,12 +53,11 @@ func GetRegions() *[]Region {
 }
 
 type tableInfo struct {
-	ID      int
-	Table   string
+	DBTable string
 	VisName string
 }
 
-type TablesInfo []tableInfo
+type TablesInfo map[int]tableInfo
 
 func (t *TablesInfo) GetTables() error {
 	db := new(database)
@@ -72,16 +71,18 @@ func (t *TablesInfo) GetTables() error {
 		return err
 	}
 
+	*t = make(map[int]tableInfo)
+
 	for rows.Next() {
 
 		var id int
 		var dbName, visName string
 
-		if err := rows.Scan(&id, &dbName, &visName, ); err != nil {
+		if err := rows.Scan(&id, &dbName, &visName); err != nil {
 			return err
 		}
-
-		*t = append(*t, tableInfo{id, dbName, visName})
+		(*t)[id] = tableInfo{dbName, visName}
 	}
+
 	return nil
 }
