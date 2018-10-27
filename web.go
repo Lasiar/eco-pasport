@@ -12,11 +12,12 @@ func run() {
 
 	api := http.NewServeMux()
 
-	api.HandleFunc("/api/get-tree", webGetTree)
+	api.HandleFunc("/get-tree", webGetTree)
+	api.HandleFunc("/get-regions", webGetRegions)
 
 	webServer := &http.Server{
 		Addr:           GetConfig().Port,
-		Handler:        middlewareCORS(api),
+		Handler:        http.StripPrefix("/api", middlewareCORS(api)),
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
@@ -41,7 +42,7 @@ func middlewareCORS(next http.Handler) http.Handler {
 	})
 }
 
-func webGetTree(w http.ResponseWriter, r *http.Request) {
+func webGetTree(w http.ResponseWriter, _ *http.Request) {
 	t := GetEpTree()
 	info := new(TablesInfo)
 
@@ -55,7 +56,17 @@ func webGetTree(w http.ResponseWriter, r *http.Request) {
 	if err := encoder.Encode(t); err != nil {
 		GetConfig().Err.Printf("[WEB] error encod json %v", err)
 	}
+}
 
+func webGetRegions(w http.ResponseWriter, _ *http.Request) {
+	regions := new(Regions)
+
+	if err := regions.GetRegions(); err != nil {
+		GetConfig().Err.Println(err)
+	}
+
+	encoder := json.NewEncoder(w)
+	encoder.Encode(regions)
 }
 
 func ChangeName(t []*nodeEpTree, table *TablesInfo) {

@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	SQLGetTables  = `SELECT ID_EP_Table, DBName, VisName FROM krasecology.eco.EP_Table;`
-	SQLGetRegions = "SELECT id, num_region, name, CAST(IIF ( is_town = 1, 1, 0 ) AS BIT) AS is_town from krasecology.eco_2018.Table_0_0_Regions"
+	SQLGetTables  = "SELECT ID_EP_Table, DBName, VisName FROM krasecology.eco.EP_Table"
+	SQLGetRegions = "SELECT id, num_region, name, IsTown from krasecology.eco.EP_Region"
 )
 
 type database struct {
@@ -23,14 +23,16 @@ func (d *database) connect() (err error) {
 	return nil
 }
 
-type Region struct {
+type region struct {
 	ID        int
 	NumRegion int
 	Name      string
 	IsTown    bool
 }
 
-func GetRegions() *[]Region {
+type Regions []region
+
+func (r *Regions) GetRegions() error {
 	db := new(database)
 
 	if err := db.connect(); err != nil {
@@ -39,17 +41,17 @@ func GetRegions() *[]Region {
 
 	rows, err := db.Query(SQLGetRegions)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	region := new(Region)
-	regions := new([]Region)
+	region := new(region)
+
 	for rows.Next() {
 		if err := rows.Scan(&region.ID, &region.NumRegion, &region.Name, &region.IsTown); err != nil {
-			log.Fatal(err)
+			return err
 		}
-		*regions = append(*regions, *region)
+		*r = append(*r, *region)
 	}
-	return regions
+	return nil
 }
 
 type tableInfo struct {
