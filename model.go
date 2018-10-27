@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	SQLGetTables  = `SELECT Table_ID, DB_Name, VisName FROM ke_bak.eco_new.Table_0_1_Tables;`
-	SQLGetRegions = "select id, num_region, name, CAST(IIF ( is_town = 1, 1, 0 ) AS BIT) AS is_town from krasecology.eco_2018.Table_0_0_Regions"
+	SQLGetTables  = `SELECT Table_ID, DB_Name, VisName FROM krasecology.eco_2018.Table_0_1_Tables;`
+	SQLGetRegions = "SELECT id, num_region, name, CAST(IIF ( is_town = 1, 1, 0 ) AS BIT) AS is_town from krasecology.eco_2018.Table_0_0_Regions"
 )
 
 type database struct {

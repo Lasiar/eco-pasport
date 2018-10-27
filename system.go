@@ -17,7 +17,6 @@ type config struct {
 	Info        *log.Logger
 }
 
-
 var _config *config
 var _onceConfig sync.Once
 var _treeXML *epTree
@@ -54,29 +53,26 @@ func (c *config) load() {
 
 type nodeEpTree struct {
 	Name      string        `xml:"name,attr"`
-	ID        string        `xml:"id,attr"`
 	TableID   string        `xml:"table_id,attr"`
 	TableName string        `xml:"table_name,attr"`
 	TreeItem  []*nodeEpTree `xml:"TreeItem"`
 }
 
 type epTree struct {
-	XMLName  xml.Name      `xml:"EpTree"`
 	TreeItem []*nodeEpTree `xml:"TreeItem"`
 }
 
-func (e *epTree)loadTree(path string) error {
+func (e *epTree) loadTree(path string) {
 	file, err := os.Open(path)
 	if err != nil {
-		return err
+		GetConfig().Err.Fatalf("Can`t read tree file from %v err %v", path, err)
 	}
 
 	d := xml.NewDecoder(file)
 
 	if d.Decode(&e) != nil {
-		return err
+		GetConfig().Err.Fatalf("Can`t read tree file from %v err %v", path, err)
 	}
-	return nil
 }
 
 func GetEpTree() *epTree {
@@ -86,6 +82,3 @@ func GetEpTree() *epTree {
 	})
 	return _treeXML
 }
-
-
-
