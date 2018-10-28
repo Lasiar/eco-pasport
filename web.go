@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -14,6 +16,7 @@ func run() {
 
 	api.HandleFunc("/get-tree", webGetTree)
 	api.HandleFunc("/get-regions", webGetRegions)
+	api.HandleFunc("/get-table", webGetTable)
 
 	webServer := &http.Server{
 		Addr:           GetConfig().Port,
@@ -24,7 +27,7 @@ func run() {
 	}
 
 	if err := webServer.ListenAndServe(); err != nil {
-		log.Fatal(err)
+		GetConfig().Err.Fatalf("Ошибка запуска сервера %v", err)
 	}
 }
 
@@ -33,11 +36,20 @@ func middlewareCORS(next http.Handler) http.Handler {
 
 		w.Header().Add("Access-Control-Allow-Origin", "*")
 		w.Header().Add("Access-Control-Allow-Headers", "*")
+		w.Header().Add("Access-Control-Allow-Credentials", "true")
 		w.Header().Add("Access-Control-Allow-Methods", "POST, OPTIONS")
 
 		if r.Method == http.MethodOptions {
 			return
 		}
+
+		if r.Method != http.MethodPost {
+			http.Error(w, "not allow", http.StatusMethodNotAllowed)
+			printWarnLog(r, "method not allowed")
+			return
+		}
+
+		printInfoLog(r)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -46,7 +58,7 @@ func webGetTree(w http.ResponseWriter, _ *http.Request) {
 	t := GetEpTree()
 	info := new(TablesInfo)
 
-	if err := info.GetTables(); err != nil {
+	if err := info.FetchTables(); err != nil {
 		log.Fatal(err)
 	}
 
@@ -61,7 +73,7 @@ func webGetTree(w http.ResponseWriter, _ *http.Request) {
 func webGetRegions(w http.ResponseWriter, _ *http.Request) {
 	regions := new(Regions)
 
-	if err := regions.GetRegions(); err != nil {
+	if err := regions.FetchRegions(); err != nil {
 		GetConfig().Err.Println(err)
 	}
 
@@ -69,13 +81,34 @@ func webGetRegions(w http.ResponseWriter, _ *http.Request) {
 	encoder.Encode(regions)
 }
 
-func ChangeName(t []*nodeEpTree, table *TablesInfo) {
-	for _, node := range t {
+func webGetTable(w http.ResponseWriter, r *http.Request) {
 
+	tblInfo := new(RequestTableInfo)
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(tblInfo); err != nil {
+		printWarnLog(r, fmt.Sprint("error deode json: %v", err))
+		return
+	}
+
+	t := new(Table)
+	if err := t.FetchTableBySQL(tblInfo); err != nil {
+		GetConfig().Err.Println(err)
+	}
+
+	encoder := json.NewEncoder(w)
+	encoder.Encode(t)
+}
+
+func ChangeName(t []*nodeEpTree, table *TablesInfo) error {
+	var sumError []string
+	for _, node := range t {
 		if node.Name == "" {
 			id, err := strconv.Atoi(node.TableID)
 			if err != nil {
-				log.Println(err)
+				if err != nil {
+					sumError = append(sumError, fmt.Sprint(err))
+				}
 			}
 
 			if table, ok := (*table)[id]; ok {
@@ -84,7 +117,16 @@ func ChangeName(t []*nodeEpTree, table *TablesInfo) {
 
 		}
 
-		ChangeName(node.TreeItem, table)
+		sumError = append(sumError, fmt.Sprint(ChangeName(node.TreeItem, table)))
 	}
+	return fmt.Errorf("%v", strings.Join(sumError, " "))
 
+}
+
+func printWarnLog(r *http.Request, info string) {
+	GetConfig().Warn.Printf("[WEB] %v connect from %v", r.URL.Path, r.RemoteAddr, info)
+}
+
+func printInfoLog(r *http.Request) {
+	GetConfig().Info.Printf("[WEB] %v connect from %v", r.URL.Path, r.RemoteAddr)
 }
