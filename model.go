@@ -2,8 +2,8 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	_ "github.com/denisenkom/go-mssqldb"
-	"log"
 )
 
 const (
@@ -46,18 +46,18 @@ func (r *Regions) FetchRegions() error {
 	db := new(database)
 
 	if err := db.connect(); err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("[DB] connect %v", err)
 	}
 
 	rows, err := db.Query(SQLGetRegions)
 	if err != nil {
-		return err
+		return fmt.Errorf("[DB] query %v", err)
 	}
 	region := new(region)
 
 	for rows.Next() {
 		if err := rows.Scan(&region.ID, &region.NumRegion, &region.Name, &region.IsTown); err != nil {
-			return err
+			return fmt.Errorf("[DB] scan %v", err)
 		}
 		*r = append(*r, *region)
 	}
@@ -81,12 +81,12 @@ func (t *TablesInfo) FetchTables() error {
 	db := new(database)
 
 	if err := db.connect(); err != nil {
-		return err
+		return fmt.Errorf("[DB] connect %v", err)
 	}
 
 	rows, err := db.Query(SQLGetTables)
 	if err != nil {
-		return err
+		return fmt.Errorf("[DB] query %v", err)
 	}
 
 	*t = make(map[int]tableInfo)
@@ -97,7 +97,7 @@ func (t *TablesInfo) FetchTables() error {
 		var dbName, visName string
 
 		if err := rows.Scan(&id, &dbName, &visName); err != nil {
-			return err
+			return fmt.Errorf("[DB] scan %v", err)
 		}
 		(*t)[id] = tableInfo{dbName, visName}
 	}
@@ -114,23 +114,23 @@ func (t *Table) FetchTableBySQL(info *RequestTableInfo) error {
 	db := new(database)
 
 	if err := db.connect(); err != nil {
-		return err
+		return fmt.Errorf("[DB] connect %v", err)
 	}
 
 	rows, err := db.Query(SQLGetSQL, info.User, info.TableID, info.RegionID)
 	if err != nil {
-		return err
+		return fmt.Errorf("[DB] query %v", err)
 	}
 
 	columns, err := rows.Columns()
 	if err != nil {
-		return err
+		return fmt.Errorf("[DB] column %v", err)
 	}
 
 	headers := new(headers)
 
 	if err := headers.fetchHeaders(info.TableID); err != nil {
-		return err
+		return fmt.Errorf("[DB] fetch headers %v", err)
 	}
 
 	for _, column := range columns {
@@ -149,7 +149,7 @@ func (t *Table) FetchTableBySQL(info *RequestTableInfo) error {
 
 		err = rows.Scan(dest...)
 		if err != nil {
-			return err
+			return fmt.Errorf("[DB] rows scan %v", err)
 		}
 
 		for j, raw := range rawResult {

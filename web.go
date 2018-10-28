@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -44,8 +43,7 @@ func middlewareCORS(next http.Handler) http.Handler {
 		}
 
 		if r.Method != http.MethodPost {
-			http.Error(w, "not allow", http.StatusMethodNotAllowed)
-			printWarnLog(r, "method not allowed")
+			printWarnLog(r, w, "method not allowed")
 			return
 		}
 
@@ -54,31 +52,37 @@ func middlewareCORS(next http.Handler) http.Handler {
 	})
 }
 
-func webGetTree(w http.ResponseWriter, _ *http.Request) {
+func webGetTree(w http.ResponseWriter, r *http.Request) {
 	t := GetEpTree()
 	info := new(TablesInfo)
 
 	if err := info.FetchTables(); err != nil {
-		log.Fatal(err)
+		printWarnLog(r, w, fmt.Sprint("[WEB]", err))
+		return
 	}
 
 	ChangeName(t.TreeItem, info)
 
 	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(t); err != nil {
-		GetConfig().Err.Printf("[WEB] error encod json %v", err)
+		printWarnLog(r, w, fmt.Sprint("[WEB] json ecode", err))
+		return
 	}
 }
 
-func webGetRegions(w http.ResponseWriter, _ *http.Request) {
+func webGetRegions(w http.ResponseWriter, r *http.Request) {
 	regions := new(Regions)
 
 	if err := regions.FetchRegions(); err != nil {
-		GetConfig().Err.Println(err)
+		printWarnLog(r, w, fmt.Sprint("[WEB]", err))
+		return
 	}
 
 	encoder := json.NewEncoder(w)
-	encoder.Encode(regions)
+	if err := encoder.Encode(regions); err != nil {
+		printWarnLog(r, w, fmt.Sprint("[WEB] json encode", err))
+		return
+	}
 }
 
 func webGetTable(w http.ResponseWriter, r *http.Request) {
@@ -87,13 +91,14 @@ func webGetTable(w http.ResponseWriter, r *http.Request) {
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(tblInfo); err != nil {
-		printWarnLog(r, fmt.Sprint("error deode json: %v", err))
+		printWarnLog(r, w, fmt.Sprint("[WEB] error deode json: %v", err))
 		return
 	}
 
 	t := new(Table)
 	if err := t.FetchTableBySQL(tblInfo); err != nil {
-		GetConfig().Err.Println(err)
+		printWarnLog(r, w, fmt.Sprint("[WEB] json encode", err))
+		return
 	}
 
 	encoder := json.NewEncoder(w)
@@ -123,8 +128,9 @@ func ChangeName(t []*nodeEpTree, table *TablesInfo) error {
 
 }
 
-func printWarnLog(r *http.Request, info string) {
-	GetConfig().Warn.Printf("[WEB] %v connect from %v", r.URL.Path, r.RemoteAddr, info)
+func printWarnLog(r *http.Request, w http.ResponseWriter, info string) {
+	http.Error(w, "some errors", http.StatusServiceUnavailable)
+	GetConfig().Warn.Printf("[WEB] %v connect from %v, %v", r.URL.Path, r.RemoteAddr, info)
 }
 
 func printInfoLog(r *http.Request) {
