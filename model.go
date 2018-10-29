@@ -7,14 +7,13 @@ import (
 )
 
 const (
-	SQLGetTables  = "SELECT ID_EP_Table, DBName, VisName FROM krasecology.eco.EP_Table"
-	SQLGetRegions = "SELECT id, num_region, name, IsTown from krasecology.eco.EP_Region"
-	SQLGetHeaders = "SELECT column_name, caption from krasecology.eco.Table_Column where ID_EP_Table=?"
+	SQLGetTables  = "SELECT Table_ID, DB_Name, VisName FROM krasecology.eco_2018.Table_0_1_Tables"
+	SQLGetRegions = "SELECT id, num_region, name, cast(iif(is_town = 1,1,0) as BIT) from krasecology.eco_2018.Table_0_0_Regions"
+	SQLGetHeaders = "SELECT column_name, caption from krasecology.eco_2018.Table_0_2_Columns where Table_ID=?"
 	SQLGetSQL     = `
 USE krasecology;
 
-declare @SQL varchar(max) EXECUTE eco.sp_get_table ?,
-?,
+declare @SQL varchar(max) EXECUTE eco_2018.sp_get_table ?,
 ?,
 @SQL output
 EXECUTE (@sql)
@@ -102,8 +101,11 @@ func (t *TablesInfo) FetchTables() error {
 		(*t)[id] = tableInfo{dbName, visName}
 	}
 
+
 	return nil
 }
+
+
 
 type Table struct {
 	Header []string
@@ -117,7 +119,7 @@ func (t *Table) FetchTableBySQL(info *RequestTableInfo) error {
 		return fmt.Errorf("[DB] connect %v", err)
 	}
 
-	rows, err := db.Query(SQLGetSQL, info.User, info.TableID, info.RegionID)
+	rows, err := db.Query(SQLGetSQL, info.TableID, info.RegionID)
 	if err != nil {
 		return fmt.Errorf("[DB] query %v", err)
 	}
@@ -138,14 +140,17 @@ func (t *Table) FetchTableBySQL(info *RequestTableInfo) error {
 	}
 
 	rawResult := make([][]byte, len(t.Header))
-	result := make([]string, len(t.Header))
 
 	dest := make([]interface{}, len(t.Header))
 	for i, _ := range rawResult {
 		dest[i] = &rawResult[i]
 	}
 
-	for rows.Next() {
+
+
+	for i := 0 ; rows.Next(); i++ {
+
+		result := make([]string, len(t.Header))
 
 		err = rows.Scan(dest...)
 		if err != nil {
@@ -158,12 +163,17 @@ func (t *Table) FetchTableBySQL(info *RequestTableInfo) error {
 			} else {
 				result[j] = string(raw)
 			}
+
 		}
-		t.Value = append(t.Value, result)
+
+ 		t.Value = append(t.Value, result)
 	}
 
 	return nil
 }
+
+
+
 
 type headers map[string]string
 

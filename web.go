@@ -33,6 +33,8 @@ func run() {
 func middlewareCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
+		GetConfig().Info.Println(r.RemoteAddr)
+
 		w.Header().Add("Access-Control-Allow-Origin", "*")
 		w.Header().Add("Access-Control-Allow-Headers", "*")
 		w.Header().Add("Access-Control-Allow-Credentials", "true")
@@ -85,6 +87,7 @@ func webGetRegions(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+
 func webGetTable(w http.ResponseWriter, r *http.Request) {
 
 	tblInfo := new(RequestTableInfo)
@@ -101,8 +104,13 @@ func webGetTable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encoder := json.NewEncoder(w)
-	encoder.Encode(t)
+	if len(t.Value) > 1 {
+		encoder := json.NewEncoder(w)
+		encoder.Encode(t)
+	}
+
+
+
 }
 
 func ChangeName(t []*nodeEpTree, table *TablesInfo) error {
@@ -130,7 +138,7 @@ func ChangeName(t []*nodeEpTree, table *TablesInfo) error {
 
 func printWarnLog(r *http.Request, w http.ResponseWriter, info string) {
 	http.Error(w, "some errors", http.StatusServiceUnavailable)
-	GetConfig().Warn.Printf("[WEB] %v connect from %v, %v", r.URL.Path, r.RemoteAddr, info)
+	GetConfig().Warn.Printf("[WEB] %v connect from %v, %v	", r.URL.Path, r.RemoteAddr, info)
 }
 
 func printInfoLog(r *http.Request) {
