@@ -107,3 +107,10 @@ func GetTablesMeta() *TablesMeta {
 	return _tablesMata
 }
 
+func GetEmptyText() *EmptyText{
+	_onceEmptyText.Do(func() {
+		_emptyText = new(EmptyText)
+		_emptyText.Fetch()
+	})
+	return _emptyText
+}

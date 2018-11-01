@@ -187,18 +187,7 @@ func (t *Table) Fetch(info *RequestTableInfo) error {
 		t.Value = append(t.Value, result)
 	}
 
-	if len(t.Value) > 0 {
-		return nil
-	}
-
-	rows, err = db.Query(SQLGetEmptyText, info.TableID, info.RegionID)
-	if err != nil {
-		return err
-	}
-
-	for rows.Next() {
-		rows.Scan(&t.InfoForEmptyValue)
-	}
+	t.InfoForEmptyValue = (*GetEmptyText())[info.TableID][info.RegionID]
 
 	return nil
 }
