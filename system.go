@@ -17,14 +17,18 @@ type config struct {
 	Info        *log.Logger
 }
 
-var _config *config
-var _onceConfig sync.Once
-var _treeXML *epTree
-var _onceTreeXML sync.Once
-var _onceHeaders sync.Once
-var _headers *Headers
-var _onceTablesMeta sync.Once
-var _tablesMaeta *TablesMeta
+var (
+	_config         *config
+	_onceConfig     sync.Once
+	_treeXML        *epTree
+	_onceTreeXML    sync.Once
+	_onceHeaders    sync.Once
+	_headers        *Headers
+	_onceTablesMeta sync.Once
+	_tablesMata     *TablesMeta
+	_onceEmptyText  sync.Once
+	_emptyText      *EmptyText
+)
 
 func GetConfig() *config {
 	_onceConfig.Do(func() {
@@ -87,7 +91,6 @@ func GetEpTree() *epTree {
 	return _treeXML
 }
 
-
 func GetHeaders() *Headers {
 	_onceHeaders.Do(func() {
 		_headers = new(Headers)
@@ -98,8 +101,9 @@ func GetHeaders() *Headers {
 
 func GetTablesMeta() *TablesMeta {
 	_onceTablesMeta.Do(func() {
-		_tablesMaeta = new(TablesMeta)
-		_tablesMaeta.Fetch()
+		_tablesMata = new(TablesMeta)
+		_tablesMata.Fetch()
 	})
-	return _tablesMaeta
+	return _tablesMata
 }
+

@@ -26,7 +26,7 @@ const (
 	SQLGetTables    string = "SELECT Table_ID, DB_Name, VisName FROM krasecology.eco_2018.Table_0_1_Tables"
 	SQLGetRegions   string = "SELECT id, num_region, name, cast(iif(is_town = 1,1,0) as BIT) from krasecology.eco_2018.Table_0_0_Regions"
 	SQLGetHeaders   string = "SELECT Table_ID,column_name, caption from krasecology.eco_2018.Table_0_2_Columns"
-	SQLGetEmptyText string = "SELECT Table_ID, Region_ID, Empty_text FROM krasecology.eco_2018.Table_0_3_Empty_text WHERE Table_ID=? and Region_ID=? "
+	SQLGetEmptyText string = "SELECT Table_ID, Region_ID, Empty_text FROM krasecology.eco_2018.Table_0_3_Empty_text"
 	SQLGetSQL       string = `
 USE krasecology;
 
@@ -65,6 +65,9 @@ func (r *Regions) FetchRegions() error {
 		return fmt.Errorf("[DB] connect %v", err)
 	}
 
+	defer db.Close()
+
+
 	rows, err := db.Query(SQLGetRegions)
 	if err != nil {
 		return fmt.Errorf("[DB] query %v", err)
@@ -100,6 +103,9 @@ func (t *TablesMeta) Fetch() error {
 		return fmt.Errorf("[DB] connect %v", err)
 	}
 
+	defer db.Close()
+
+
 	rows, err := db.Query(SQLGetTables)
 	if err != nil {
 		return fmt.Errorf("[DB] query %v", err)
@@ -133,6 +139,9 @@ func (t *Table) Fetch(info *RequestTableInfo) error {
 	if err := db.connect(); err != nil {
 		return fmt.Errorf("[DB] connect %v", err)
 	}
+
+	defer db.Close()
+
 
 	rows, err := db.Query(SQLGetSQL, info.TableID, info.RegionID)
 	if err != nil {
@@ -202,6 +211,8 @@ func (h *Headers) Fetch() error {
 		return err
 	}
 
+	defer db.Close()
+
 	rows, err := db.Query(SQLGetHeaders)
 	if err != nil {
 		return err
@@ -222,4 +233,35 @@ func (h *Headers) Fetch() error {
 		(*h)[tableID][dbName] = visName
 	}
 	return nil
+}
+
+type EmptyText map[int]map[int]string
+
+func (e *EmptyText) Fetch() error {
+	db := new(database)
+	if err := db.connect(); err != nil {
+		return err
+	}
+
+	defer db.Close()
+
+	rows, err := db.Query(SQLGetHeaders)
+	if err != nil {
+		return err
+	}
+
+	var tableID, regionsID int
+	var emptyText string
+
+	*e = make(map[int]map[int]string)
+
+	for rows.Next() {
+		rows.Scan(&tableID, &regionsID, &emptyText)
+
+		if (*e)[tableID] == nil {
+			(*e)[tableID] = make(map[int]string)
+		}
+		(*e)[tableID][regionsID] = emptyText
+	}
+
 }
