@@ -21,6 +21,10 @@ var _config *config
 var _onceConfig sync.Once
 var _treeXML *epTree
 var _onceTreeXML sync.Once
+var _onceHeaders sync.Once
+var _headers *Headers
+var _onceTablesMeta sync.Once
+var _tablesMaeta *TablesMeta
 
 func GetConfig() *config {
 	_onceConfig.Do(func() {
@@ -81,4 +85,21 @@ func GetEpTree() *epTree {
 		_treeXML.loadTree(GetConfig().PathTreeXML)
 	})
 	return _treeXML
+}
+
+
+func GetHeaders() *Headers {
+	_onceHeaders.Do(func() {
+		_headers = new(Headers)
+		_headers.Fetch()
+	})
+	return _headers
+}
+
+func GetTablesMeta() *TablesMeta {
+	_onceTablesMeta.Do(func() {
+		_tablesMaeta = new(TablesMeta)
+		_tablesMaeta.Fetch()
+	})
+	return _tablesMaeta
 }

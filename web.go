@@ -56,14 +56,12 @@ func middlewareCORS(next http.Handler) http.Handler {
 
 func webGetTree(w http.ResponseWriter, r *http.Request) {
 	t := GetEpTree()
-	info := new(TablesInfo)
 
-	if err := info.FetchTables(); err != nil {
-		printWarnLog(r, w, fmt.Sprint("[WEB]", err))
-		return
-	}
+	meta := GetTablesMeta()
 
-	ChangeName(t.TreeItem, info)
+	ChangeName(t.TreeItem, meta)
+
+	fmt.Println(t)
 
 	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(t); err != nil {
@@ -87,7 +85,6 @@ func webGetRegions(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
 func webGetTable(w http.ResponseWriter, r *http.Request) {
 
 	tblInfo := new(RequestTableInfo)
@@ -99,21 +96,17 @@ func webGetTable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	t := new(Table)
-	if err := t.FetchTableBySQL(tblInfo); err != nil {
+	if err := t.Fetch(tblInfo); err != nil {
 		printWarnLog(r, w, fmt.Sprint("[WEB] json encode", err))
 		return
 	}
 
-	if len(t.Value) > 1 {
-		encoder := json.NewEncoder(w)
-		encoder.Encode(t)
-	}
-
-
+	encoder := json.NewEncoder(w)
+	encoder.Encode(t)
 
 }
 
-func ChangeName(t []*nodeEpTree, table *TablesInfo) error {
+func ChangeName(t []*nodeEpTree, table *TablesMeta) error {
 	var sumError []string
 	for _, node := range t {
 		if node.Name == "" {

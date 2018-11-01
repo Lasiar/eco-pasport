@@ -7,10 +7,27 @@ import (
 )
 
 const (
-	SQLGetTables  = "SELECT Table_ID, DB_Name, VisName FROM krasecology.eco_2018.Table_0_1_Tables"
-	SQLGetRegions = "SELECT id, num_region, name, cast(iif(is_town = 1,1,0) as BIT) from krasecology.eco_2018.Table_0_0_Regions"
-	SQLGetHeaders = "SELECT column_name, caption from krasecology.eco_2018.Table_0_2_Columns where Table_ID=?"
-	SQLGetSQL     = `
+	/*	SQLGetTables           = "SELECT ID_EP_Table, DBName, VisName FROM krasecology.eco.EP_Table"
+		SQLGetRegions          = "SELECT id, num_region, name, IsTown from krasecology.eco.EP_Region"
+		SQLGetHeaders          = "SELECT ID_EP_Table, column_name, caption from krasecology.eco.Table_Column"
+		SQLGetEmptyText string = "SELECT Empty_text FROM krasecology.eco.l_EP_Tabe_EP_Region WHERE ID_EP_Table=? and ID_EP_Region=? "
+		SQLGetSQL              = `
+	USE krasecology;
+
+	declare @SQL varchar(max) EXECUTE eco.sp_get_table 'babay@krasecology.ru',
+	?,
+	?,
+	@SQL output
+	EXECUTE (@sql)
+	`
+	)
+
+	*/
+	SQLGetTables    string = "SELECT Table_ID, DB_Name, VisName FROM krasecology.eco_2018.Table_0_1_Tables"
+	SQLGetRegions   string = "SELECT id, num_region, name, cast(iif(is_town = 1,1,0) as BIT) from krasecology.eco_2018.Table_0_0_Regions"
+	SQLGetHeaders   string = "SELECT Table_ID,column_name, caption from krasecology.eco_2018.Table_0_2_Columns"
+	SQLGetEmptyText string = "SELECT Table_ID, Region_ID, Empty_text FROM krasecology.eco_2018.Table_0_3_Empty_text WHERE Table_ID=? and Region_ID=? "
+	SQLGetSQL       string = `
 USE krasecology;
 
 declare @SQL varchar(max) EXECUTE eco_2018.sp_get_table ?,
@@ -74,9 +91,9 @@ type tableInfo struct {
 	VisName string
 }
 
-type TablesInfo map[int]tableInfo
+type TablesMeta map[int]tableInfo
 
-func (t *TablesInfo) FetchTables() error {
+func (t *TablesMeta) Fetch() error {
 	db := new(database)
 
 	if err := db.connect(); err != nil {
@@ -101,18 +118,16 @@ func (t *TablesInfo) FetchTables() error {
 		(*t)[id] = tableInfo{dbName, visName}
 	}
 
-
 	return nil
 }
 
-
-
 type Table struct {
-	Header []string
-	Value  [][]string
+	Header            []string
+	Value             [][]string
+	InfoForEmptyValue string
 }
 
-func (t *Table) FetchTableBySQL(info *RequestTableInfo) error {
+func (t *Table) Fetch(info *RequestTableInfo) error {
 	db := new(database)
 
 	if err := db.connect(); err != nil {
@@ -129,14 +144,10 @@ func (t *Table) FetchTableBySQL(info *RequestTableInfo) error {
 		return fmt.Errorf("[DB] column %v", err)
 	}
 
-	headers := new(headers)
-
-	if err := headers.fetchHeaders(info.TableID); err != nil {
-		return fmt.Errorf("[DB] fetch headers %v", err)
-	}
+	headers := (*GetHeaders())[info.TableID]
 
 	for _, column := range columns {
-		t.Header = append(t.Header, (*headers)[column])
+		t.Header = append(t.Header, headers[column])
 	}
 
 	rawResult := make([][]byte, len(t.Header))
@@ -146,9 +157,7 @@ func (t *Table) FetchTableBySQL(info *RequestTableInfo) error {
 		dest[i] = &rawResult[i]
 	}
 
-
-
-	for i := 0 ; rows.Next(); i++ {
+	for rows.Next() {
 
 		result := make([]string, len(t.Header))
 
@@ -166,37 +175,51 @@ func (t *Table) FetchTableBySQL(info *RequestTableInfo) error {
 
 		}
 
- 		t.Value = append(t.Value, result)
+		t.Value = append(t.Value, result)
+	}
+
+	if len(t.Value) > 0 {
+		return nil
+	}
+
+	rows, err = db.Query(SQLGetEmptyText, info.TableID, info.RegionID)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		rows.Scan(&t.InfoForEmptyValue)
 	}
 
 	return nil
 }
 
+type Headers map[int]map[string]string
 
-
-
-type headers map[string]string
-
-func (h *headers) fetchHeaders(tableID int) error {
+func (h *Headers) Fetch() error {
 	db := new(database)
 	if err := db.connect(); err != nil {
 		return err
 	}
 
-	rows, err := db.Query(SQLGetHeaders, tableID)
+	rows, err := db.Query(SQLGetHeaders)
 	if err != nil {
 		return err
 	}
 
+	var tableID int
 	var dbName, visName string
 
-	*h = make(map[string]string)
+	*h = make(map[int]map[string]string)
 
 	for rows.Next() {
-		if err := rows.Scan(&dbName, &visName); err != nil {
+		if err := rows.Scan(&tableID, &dbName, &visName); err != nil {
 			return err
 		}
-		(*h)[dbName] = visName
+		if (*h)[tableID] == nil {
+			(*h)[tableID] = make(map[string]string)
+		}
+		(*h)[tableID][dbName] = visName
 	}
 	return nil
 }
