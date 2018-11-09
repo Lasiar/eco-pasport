@@ -73,7 +73,7 @@ func webGetTree(w http.ResponseWriter, r *http.Request) {
 func webGetRegions(w http.ResponseWriter, r *http.Request) {
 	regions := new(Regions)
 
-	if err := regions.FetchRegions(); err != nil {
+	if err := regions.Fetch(); err != nil {
 		printWarnLog(r, w, fmt.Sprint("[WEB]", err))
 		return
 	}
@@ -126,14 +126,15 @@ func ChangeName(t []*nodeEpTree, table *TablesMeta) error {
 		sumError = append(sumError, fmt.Sprint(ChangeName(node.TreeItem, table)))
 	}
 	return fmt.Errorf("%v", strings.Join(sumError, " "))
-
 }
+
 
 func printWarnLog(r *http.Request, w http.ResponseWriter, info string) {
 	http.Error(w, "some errors", http.StatusServiceUnavailable)
-	GetConfig().Warn.Printf("[WEB] %v connect from %v, %v	", r.URL.Path, r.RemoteAddr, info)
+	GetConfig().Warn.Printf("[WEB] %v connectMSSQL from %v, %v	", r.URL.Path, r.RemoteAddr, info)
 }
 
 func printInfoLog(r *http.Request) {
-	GetConfig().Info.Printf("[WEB] %v connect from %v", r.URL.Path, r.RemoteAddr)
+	GetConfig().Info.Printf("[WEB] %v connectMSSQL from %v", r.URL.Path, r.RemoteAddr)
 }
+

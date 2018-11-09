@@ -7,11 +7,12 @@ import (
 )
 
 const (
-	/*	SQLGetTables           = "SELECT ID_EP_Table, DBName, VisName FROM krasecology.eco.EP_Table"
-		SQLGetRegions          = "SELECT id, num_region, name, IsTown from krasecology.eco.EP_Region"
-		SQLGetHeaders          = "SELECT ID_EP_Table, column_name, caption from krasecology.eco.Table_Column"
-		SQLGetEmptyText string = "SELECT Empty_text FROM krasecology.eco.l_EP_Tabe_EP_Region WHERE ID_EP_Table=? and ID_EP_Region=? "
-		SQLGetSQL              = `
+	/*
+	SQLGetTables    string = "SELECT ID_EP_Table, DBName, VisName FROM krasecology.eco.EP_Table"
+	SQLGetRegions   string = "SELECT id, num_region, name, IsTown from krasecology.eco.EP_Region"
+	SQLGetHeaders   string = "SELECT ID_EP_Table, column_name, caption from krasecology.eco.Table_Column"
+	SQLGetEmptyText string = "SELECT Empty_text FROM krasecology.eco.l_EP_Tabe_EP_Region"
+	SQLGetSQL       string = `
 	USE krasecology;
 
 	declare @SQL varchar(max) EXECUTE eco.sp_get_table 'babay@krasecology.ru',
@@ -20,9 +21,9 @@ const (
 	@SQL output
 	EXECUTE (@sql)
 	`
-	)
+)
 
-	*/
+*/
 	SQLGetTables    string = "SELECT Table_ID, DB_Name, VisName FROM krasecology.eco_2018.Table_0_1_Tables"
 	SQLGetRegions   string = "SELECT id, num_region, name, cast(iif(is_town = 1,1,0) as BIT) from krasecology.eco_2018.Table_0_0_Regions"
 	SQLGetHeaders   string = "SELECT Table_ID,column_name, caption from krasecology.eco_2018.Table_0_2_Columns"
@@ -41,7 +42,7 @@ type database struct {
 	*sql.DB
 }
 
-func (d *database) connect() (err error) {
+func (d *database) connectMSSQL() (err error) {
 	d.DB, err = sql.Open("mssql", GetConfig().ConnStr)
 	if err != nil {
 		return err
@@ -58,15 +59,14 @@ type region struct {
 
 type Regions []region
 
-func (r *Regions) FetchRegions() error {
+func (r *Regions) Fetch() error {
 	db := new(database)
 
-	if err := db.connect(); err != nil {
-		return fmt.Errorf("[DB] connect %v", err)
+	if err := db.connectMSSQL(); err != nil {
+		return fmt.Errorf("[DB] connectMSSQL %v", err)
 	}
 
 	defer db.Close()
-
 
 	rows, err := db.Query(SQLGetRegions)
 	if err != nil {
@@ -99,12 +99,11 @@ type TablesMeta map[int]tableInfo
 func (t *TablesMeta) Fetch() error {
 	db := new(database)
 
-	if err := db.connect(); err != nil {
-		return fmt.Errorf("[DB] connect %v", err)
+	if err := db.connectMSSQL(); err != nil {
+		return fmt.Errorf("[DB] connectMSSQL %v", err)
 	}
 
 	defer db.Close()
-
 
 	rows, err := db.Query(SQLGetTables)
 	if err != nil {
@@ -130,18 +129,17 @@ func (t *TablesMeta) Fetch() error {
 type Table struct {
 	Header            []string
 	Value             [][]string
-	InfoForEmptyValue string
+	InfoForEmptyValue string `json:",omitempty"`
 }
 
 func (t *Table) Fetch(info *RequestTableInfo) error {
 	db := new(database)
 
-	if err := db.connect(); err != nil {
-		return fmt.Errorf("[DB] connect %v", err)
+	if err := db.connectMSSQL(); err != nil {
+		return fmt.Errorf("[DB] connectMSSQL %v", err)
 	}
 
 	defer db.Close()
-
 
 	rows, err := db.Query(SQLGetSQL, info.TableID, info.RegionID)
 	if err != nil {
@@ -196,7 +194,7 @@ type Headers map[int]map[string]string
 
 func (h *Headers) Fetch() error {
 	db := new(database)
-	if err := db.connect(); err != nil {
+	if err := db.connectMSSQL(); err != nil {
 		return err
 	}
 
@@ -228,29 +226,29 @@ type EmptyText map[int]map[int]string
 
 func (e *EmptyText) Fetch() error {
 	db := new(database)
-	if err := db.connect(); err != nil {
+	if err := db.connectMSSQL(); err != nil {
 		return err
 	}
 
 	defer db.Close()
 
-	rows, err := db.Query(SQLGetHeaders)
+	rows, err := db.Query(SQLGetEmptyText)
 	if err != nil {
 		return err
 	}
 
-	var tableID, regionsID int
+	var tableID, regionID int
 	var emptyText string
 
 	*e = make(map[int]map[int]string)
 
 	for rows.Next() {
-		rows.Scan(&tableID, &regionsID, &emptyText)
+		rows.Scan(&tableID, &regionID, &emptyText)
 
 		if (*e)[tableID] == nil {
 			(*e)[tableID] = make(map[int]string)
 		}
-		(*e)[tableID][regionsID] = emptyText
+		(*e)[tableID][regionID] = emptyText
 	}
-
+	return nil
 }

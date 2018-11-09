@@ -61,9 +61,9 @@ func (c *config) load() {
 
 type nodeEpTree struct {
 	Name      string        `xml:"name,attr"`
-	TableID   string        `xml:"table_id,attr"`
-	TableName string        `xml:"table_name,attr"`
-	TreeItem  []*nodeEpTree `xml:"TreeItem"`
+	TableID   string        `xml:"table_id,attr" json:",omitempty"`
+	TableName string        `xml:"table_name,attr"  json:",omitempty"`
+	TreeItem  []*nodeEpTree `xml:"TreeItem"  json:",omitempty"`
 }
 
 type epTree struct {
@@ -96,6 +96,7 @@ func GetHeaders() *Headers {
 		_headers = new(Headers)
 		_headers.Fetch()
 	})
+
 	return _headers
 }
 
@@ -110,7 +111,9 @@ func GetTablesMeta() *TablesMeta {
 func GetEmptyText() *EmptyText{
 	_onceEmptyText.Do(func() {
 		_emptyText = new(EmptyText)
-		_emptyText.Fetch()
+		if err := _emptyText.Fetch(); err != nil {
+			log.Fatal(err)
+		}
 	})
 	return _emptyText
 }
