@@ -30,6 +30,7 @@ var (
 	_emptyText      *EmptyText
 )
 
+//GetConfig получение объекта конфига
 func GetConfig() *config {
 	_onceConfig.Do(func() {
 		_config = new(config)
@@ -83,6 +84,7 @@ func (e *epTree) loadTree(path string) {
 	}
 }
 
+//GetEpTree получение дерева таблиц
 func GetEpTree() *epTree {
 	_onceTreeXML.Do(func() {
 		_treeXML = new(epTree)
@@ -91,10 +93,13 @@ func GetEpTree() *epTree {
 	return _treeXML
 }
 
+//GetHeaders получение всех заголовок всех таблиц singletone
 func GetHeaders() *Headers {
 	_onceHeaders.Do(func() {
 		_headers = new(Headers)
-		_headers.Fetch()
+		if err := _headers.Fetch(); err != nil {
+			log.Fatal(err)
+		}
 	})
 
 	return _headers
@@ -103,11 +108,14 @@ func GetHeaders() *Headers {
 func GetTablesMeta() *TablesMeta {
 	_onceTablesMeta.Do(func() {
 		_tablesMata = new(TablesMeta)
-		_tablesMata.Fetch()
+		if err := _tablesMata.Fetch(); err != nil {
+			log.Println(err)
+		}
 	})
 	return _tablesMata
 }
 
+//
 func GetEmptyText() *EmptyText{
 	_onceEmptyText.Do(func() {
 		_emptyText = new(EmptyText)

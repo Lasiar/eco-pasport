@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,15 +12,27 @@ import (
 
 func run() {
 
-	api := http.NewServeMux()
+	apiMux := http.NewServeMux()
 
-	api.HandleFunc("/get-tree", webGetTree)
-	api.HandleFunc("/get-regions", webGetRegions)
-	api.HandleFunc("/get-table", webGetTable)
+	apiMux.HandleFunc("/get-tree", webGetTree)
+	apiMux.HandleFunc("/get-regions", webGetRegions)
+	apiMux.HandleFunc("/get-table", webGetTable)
+
+	api := middlewareCORS(apiMux)
+
+	staticMux := http.NewServeMux()
+
+	staticMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "data/index.html")
+	})
+
+	staticMux.Handle("/api/", http.StripPrefix("/api", api))
+
+	staticMux.Handle("/data/", http.StripPrefix("/data/", middlewareSetCacheControl(http.FileServer(http.Dir("./data")))))
 
 	webServer := &http.Server{
 		Addr:           GetConfig().Port,
-		Handler:        http.StripPrefix("/api", middlewareCORS(api)),
+		Handler:        staticMux,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
@@ -30,11 +43,29 @@ func run() {
 	}
 }
 
+func middlewareLogging(logger *log.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				logger.Println(r.Method, r.URL.Path, r.RemoteAddr, r.UserAgent())
+			}()
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func middlewareSetCacheControl(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("fuck")
+		w.Header().Set("Last-Modified", time.Now().Format(http.TimeFormat))
+		w.Header().Set("Cache-Control", "max-age:290304000, public")
+		w.Header().Set("Expires", time.Now().AddDate(60, 0, 0).Format(http.TimeFormat))
+		next.ServeHTTP(w, r)
+	})
+}
+
 func middlewareCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		GetConfig().Info.Println(r.RemoteAddr)
-
 		w.Header().Add("Access-Control-Allow-Origin", "*")
 		w.Header().Add("Access-Control-Allow-Headers", "*")
 		w.Header().Add("Access-Control-Allow-Credentials", "true")
@@ -49,22 +80,24 @@ func middlewareCORS(next http.Handler) http.Handler {
 			return
 		}
 
-		printInfoLog(r)
 		next.ServeHTTP(w, r)
 	})
 }
 
 func webGetTree(w http.ResponseWriter, r *http.Request) {
-	t := GetEpTree()
+	res := struct {
+		*TablesMeta
+		*epTree
+	}{}
 
-	meta := GetTablesMeta()
+	res.epTree = GetEpTree()
 
-	ChangeName(t.TreeItem, meta)
+	res.TablesMeta = GetTablesMeta()
 
-	fmt.Println(t)
+	changeName(res.TreeItem, res.TablesMeta)
 
 	encoder := json.NewEncoder(w)
-	if err := encoder.Encode(t); err != nil {
+	if err := encoder.Encode(res); err != nil {
 		printWarnLog(r, w, fmt.Sprint("[WEB] json ecode", err))
 		return
 	}
@@ -91,7 +124,7 @@ func webGetTable(w http.ResponseWriter, r *http.Request) {
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(tblInfo); err != nil {
-		printWarnLog(r, w, fmt.Sprint("[WEB] error deode json: %v", err))
+		printWarnLog(r, w, fmt.Sprintf("[WEB] error deode json: %v", err))
 		return
 	}
 
@@ -103,10 +136,9 @@ func webGetTable(w http.ResponseWriter, r *http.Request) {
 
 	encoder := json.NewEncoder(w)
 	encoder.Encode(t)
-
 }
 
-func ChangeName(t []*nodeEpTree, table *TablesMeta) error {
+func changeName(t []*nodeEpTree, table *TablesMeta) error {
 	var sumError []string
 	for _, node := range t {
 		if node.Name == "" {
@@ -123,18 +155,16 @@ func ChangeName(t []*nodeEpTree, table *TablesMeta) error {
 
 		}
 
-		sumError = append(sumError, fmt.Sprint(ChangeName(node.TreeItem, table)))
+		sumError = append(sumError, fmt.Sprint(changeName(node.TreeItem, table)))
 	}
 	return fmt.Errorf("%v", strings.Join(sumError, " "))
 }
 
-
 func printWarnLog(r *http.Request, w http.ResponseWriter, info string) {
 	http.Error(w, "some errors", http.StatusServiceUnavailable)
-	GetConfig().Warn.Printf("[WEB] %v connectMSSQL from %v, %v	", r.URL.Path, r.RemoteAddr, info)
+	GetConfig().Warn.Printf("[WEB] %v connect from %v, %v	", r.URL.Path, r.RemoteAddr, info)
 }
 
 func printInfoLog(r *http.Request) {
 	GetConfig().Info.Printf("[WEB] %v connectMSSQL from %v", r.URL.Path, r.RemoteAddr)
 }
-

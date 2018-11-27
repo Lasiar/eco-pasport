@@ -15,5 +15,6 @@
 .idea/
 
 #other
+data/
 Tree.xml
 config.json
