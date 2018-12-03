@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/denisenkom/go-mssqldb"
+	"log"
 )
 
 const (
@@ -91,51 +92,65 @@ EXECUTE (@sql)
 `
 )
 
-type database struct {
-	*sql.DB
+type Database struct {
+	DB *sql.DB
 }
 
-func (d *database) connectMSSQL() (err error) {
+func NewDatabase() *Database {
+	db := new(Database)
+	if err := db.connectMSSQL(); err != nil {
+		log.Printf("[DB CONNECT] %v", err)
+		return nil
+	}
+	return db
+}
+
+func (d *Database) connectMSSQL() (err error) {
 	d.DB, err = sql.Open("mssql", GetConfig().ConnStr)
 	if err != nil {
 		return err
 	}
+
+	if err := d.DB.Ping(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-type region struct {
+func (d *Database) close() {
+	if err := d.DB.Close(); err != nil {
+		log.Printf("[DB CLOSE] %v", err)
+	}
+}
+
+type Region struct {
 	ID        int
 	NumRegion int
 	Name      string
 	IsTown    bool
 }
 
-//Regions структура всех регионов
-type Regions []region
-
 //Fetch получение данных с базы
-func (r *Regions) Fetch() error {
-	db := new(database)
+func (d *Database) GetRegions() ([]Region, error) {
+	defer d.close()
 
-	if err := db.connectMSSQL(); err != nil {
-		return fmt.Errorf("[DB] connectMSSQL %v", err)
-	}
-
-	defer db.Close()
-
-	rows, err := db.Query(sqlGetRegions)
+	rows, err := d.DB.Query(sqlGetRegions)
 	if err != nil {
-		return fmt.Errorf("[DB] query %v", err)
+		return nil, fmt.Errorf("[DB] query %v", err)
 	}
-	region := new(region)
+
+	regions := new([]Region)
 
 	for rows.Next() {
-		if err := rows.Scan(&region.ID, &region.NumRegion, &region.Name, &region.IsTown); err != nil {
-			return fmt.Errorf("[DB] scan %v", err)
+		r := new(Region)
+
+		if err := rows.Scan(&r.ID, &r.NumRegion, &r.Name, &r.IsTown); err != nil {
+			return nil, fmt.Errorf("[DB] scan %v", err)
 		}
-		*r = append(*r, *region)
+		*regions = append(*regions, *r)
 	}
-	return nil
+	return *regions, nil
 }
 
 //RequestTableInfo информация от пользвателя для выдачи таблицы
@@ -145,43 +160,37 @@ type RequestTableInfo struct {
 	TableID  int    `json:"table_id"`
 }
 
-type tableInfo struct {
+type TableInfo struct {
 	DBTable string
 	VisName string
 }
 
-//TablesMeta информация про таблицы
-type TablesMeta map[int]tableInfo
-
 //Fetch получение данных с базы
-func (t *TablesMeta) Fetch() error {
-	db := new(database)
+func (d *Database) GetTablesInfo() (map[int]TableInfo, error) {
+	defer d.close()
 
-	if err := db.connectMSSQL(); err != nil {
-		return fmt.Errorf("[DB] connectMSSQL %v", err)
-	}
-
-	defer db.Close()
-
-	rows, err := db.Query(sqlGetTables)
+	rows, err := d.DB.Query(sqlGetTables)
 	if err != nil {
-		return fmt.Errorf("[DB] query %v", err)
+		return nil, fmt.Errorf("[DB] query %v", err)
 	}
 
-	*t = make(map[int]tableInfo)
+	t := make(map[int]TableInfo)
 
 	for rows.Next() {
 
-		var id int
-		var dbName, visName string
+		row := struct {
+			id      int
+			dbName  string
+			visName string
+		}{}
 
-		if err := rows.Scan(&id, &dbName, &visName); err != nil {
-			return fmt.Errorf("[DB] scan %v", err)
+		if err := rows.Scan(&row.id, &row.dbName, &row.visName); err != nil {
+			return nil, fmt.Errorf("[DB] scan %v", err)
 		}
-		(*t)[id] = tableInfo{dbName, visName}
+		t[row.id] = TableInfo{row.dbName, row.visName}
 	}
 
-	return nil
+	return t, nil
 }
 
 //Table отдаваемая пользователю таблица
@@ -193,36 +202,32 @@ type Table struct {
 }
 
 //Fetch получение данных с базы
-func (t *Table) Fetch(info *RequestTableInfo) error {
-	db := new(database)
-
-	if err := db.connectMSSQL(); err != nil {
-		return fmt.Errorf("[DB] connectMSSQL %v", err)
-	}
-
-	defer db.Close()
+func (d *Database) GetTable(user string, regionID int, tableID int) (*Table, error) {
+	defer d.close()
 
 	var (
 		rows *sql.Rows
 		err  error
 	)
 
-	switch info.TableID {
+	switch tableID {
 	case 1014:
-		rows, err = db.Query(sqlGetTableSpecial, info.RegionID)
+		rows, err = d.DB.Query(sqlGetTableSpecial, regionID)
 	default:
-		rows, err = db.Query(sqlGetSQL, info.TableID, info.RegionID)
+		rows, err = d.DB.Query(sqlGetSQL, tableID, regionID)
 	}
 	if err != nil {
-		return fmt.Errorf("[DB] query %v", err)
+		return nil, fmt.Errorf("[DB] query %v", err)
 	}
 
 	columns, err := rows.Columns()
 	if err != nil {
-		return fmt.Errorf("[DB] column %v", err)
+		return nil, fmt.Errorf("[DB] column %v", err)
 	}
 
-	headers := (*GetHeaders())[info.TableID]
+	headers := (*GetHeaders())[tableID]
+
+	t := new(Table)
 
 	if headers.HTML != "" {
 		t.HeaderAsHtml = headers.HTML
@@ -245,7 +250,7 @@ func (t *Table) Fetch(info *RequestTableInfo) error {
 
 		err = rows.Scan(dest...)
 		if err != nil {
-			return fmt.Errorf("[DB] rows scan %v", err)
+			return nil, fmt.Errorf("[DB] rows scan %v", err)
 		}
 
 		for j, raw := range rawResult {
@@ -260,11 +265,11 @@ func (t *Table) Fetch(info *RequestTableInfo) error {
 		t.Value = append(t.Value, result)
 	}
 
-	if v, ok := (*GetEmptyText())[info.TableID][info.RegionID]; ok {
+	if v, ok := (*GetEmptyText())[tableID][regionID]; ok {
 		t.InfoForEmptyValue = v
 	}
 
-	return nil
+	return t, nil
 }
 
 //Headers кеширование всех хейдоеров
@@ -274,84 +279,85 @@ type Headers map[int]struct {
 }
 
 //Fetch получение данных с базы
-func (h *Headers) Fetch() error {
-	db := new(database)
-	if err := db.connectMSSQL(); err != nil {
-		return err
-	}
+func (d *Database) GetHeaders() (*Headers, error) {
+	defer d.close()
 
-	defer db.Close()
-
-	rows, err := db.Query(sqlGetHeaders)
+	rows, err := d.DB.Query(sqlGetHeaders)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	var tableID int
-	var dbName, visName string
-	var htmlHeader sql.NullString
+	headers := new(Headers)
 
-	*h = make(map[int]struct {
+	*headers = make(map[int]struct {
 		Columns map[string]string
 		HTML    string
 	})
 
 	for rows.Next() {
-		if err := rows.Scan(&tableID, &dbName, &visName, &htmlHeader); err != nil {
-			return err
+
+		row := struct {
+			tableID    int
+			dbName     string
+			visName    string
+			htmlHeader sql.NullString
+		}{}
+
+		if err := rows.Scan(&row.tableID, &row.dbName, &row.visName, &row.htmlHeader); err != nil {
+			return nil, err
 		}
 
-		if htmlHeader.Valid {
-			(*h)[tableID] = struct {
-				Columns map[string]string
-				HTML    string
-			}{Columns: nil, HTML: htmlHeader.String}
+		h := struct {
+			Columns map[string]string
+			HTML    string
+		}{}
+
+		if row.htmlHeader.Valid {
+			h.HTML = row.htmlHeader.String
+			(*headers)[row.tableID] = h
 			continue
 		}
 
-		if (*h)[tableID].Columns == nil {
-			(*h)[tableID] = struct {
-				Columns map[string]string
-				HTML    string
-			}{Columns: make(map[string]string), HTML: ""}
+		if (*headers)[row.tableID].Columns == nil {
+			h.Columns = make(map[string]string)
 		}
-		(*h)[tableID].Columns[dbName] = visName
+		(*headers)[row.tableID].Columns[row.dbName] = row.visName
 	}
 
-	return nil
+	return headers, nil
 }
 
 //EmptyText кеш инфомрации для пустых таблиц
-type EmptyText map[int]map[int]string
 
 //Fetch получение данных с базы
-func (e *EmptyText) Fetch() error {
-	db := new(database)
-	if err := db.connectMSSQL(); err != nil {
-		return err
-	}
+func (d *Database) getTextForEmptyTable() (map[int]map[int]string, error) {
+	defer d.close()
 
-	defer db.Close()
-
-	rows, err := db.Query(sqlGetEmptyText)
+	rows, err := d.DB.Query(sqlGetEmptyText)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	var tableID, regionID int
-	var emptyText string
-
-	*e = make(map[int]map[int]string)
+	textForEmptyTable := make(map[int]map[int]string)
 
 	for rows.Next() {
-		rows.Scan(&tableID, &regionID, &emptyText)
 
-		if (*e)[tableID] == nil {
-			(*e)[tableID] = make(map[int]string)
+		row := struct {
+			tableID  int
+			regionID int
+			text     string
+		}{}
+
+		if err := rows.Scan(&row.tableID, &row.regionID, &row.text); err != nil {
+			return nil, err
 		}
-		(*e)[tableID][regionID] = emptyText
+
+		if textForEmptyTable[row.tableID] == nil {
+			textForEmptyTable[row.tableID] = make(map[int]string)
+		}
+		textForEmptyTable[row.tableID][row.regionID] = row.text
 	}
-	return nil
+	return textForEmptyTable, nil
 }
 
 type RegionInfo struct {
@@ -362,40 +368,20 @@ type RegionInfo struct {
 	Caption      string
 }
 
-func (ri *RegionInfo) Fill(id int) (bool, error) {
-	db := new(database)
-	if err := db.connectMSSQL(); err != nil {
-		return false, err
-	}
+func (d *Database) GetRegionInfo(id int) (*RegionInfo, bool, error) {
+	defer d.close()
 
-	defer db.Close()
+	regionInfo := new(RegionInfo)
 
-	row := db.QueryRow(sqlGetInfoRegion, id)
-	var (
-		adminCenter  string
-		creationDate int
-		population   string
-		area         string
-		caption      string
-	)
+	row := d.DB.QueryRow(sqlGetInfoRegion, id)
 
-	err := row.Scan(&adminCenter, &creationDate, &population, &area, &caption)
+	err := row.Scan(&regionInfo.AdminCenter, &regionInfo.CreationDate, &regionInfo.Population, &regionInfo.Area, &regionInfo.Caption)
 	if err == sql.ErrNoRows {
-		return false, nil
+		return nil, false, nil
 	}
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
 
-
-	*ri = RegionInfo{
-		AdminCenter:
-		adminCenter,
-		CreationDate: creationDate,
-		Population:   population,
-		Area:         area,
-		Caption:      caption,
-	}
-
-	return true, nil
+	return regionInfo, true, nil
 }

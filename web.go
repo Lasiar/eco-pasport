@@ -15,14 +15,13 @@ type webError struct {
 	Message string
 }
 
-
 type webHandler func(http.ResponseWriter, *http.Request) *webError
 
 func (wh webHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if e := wh(w, r); e != nil {
 		encoder := json.NewEncoder(w)
 
-		log.Printf("[WEB] %v %v %v %v", e.Message, e.Error, r.Method, r.URL)
+		log.Printf("[WEB] %v %v [METНOD] %v [URL] %v [USER AGENT] %v", e.Message, e.Error, r.Method, r.URL, r.UserAgent())
 
 		w.WriteHeader(http.StatusInternalServerError)
 
