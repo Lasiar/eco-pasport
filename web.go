@@ -10,14 +10,41 @@ import (
 	"time"
 )
 
+type webError struct {
+	Error   error
+	Message string
+}
+
+
+type webHandler func(http.ResponseWriter, *http.Request) *webError
+
+func (wh webHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if e := wh(w, r); e != nil {
+		encoder := json.NewEncoder(w)
+
+		log.Printf("[WEB] %v %v %v %v", e.Message, e.Error, r.Method, r.URL)
+
+		w.WriteHeader(http.StatusInternalServerError)
+
+		request := struct {
+			Message string
+		}{e.Message}
+
+		if err := encoder.Encode(request); err != nil {
+			log.Printf("[WEB] %v", err)
+		}
+
+	}
+}
+
 func run() {
 
 	apiMux := http.NewServeMux()
 
-	apiMux.HandleFunc("/get-tree", webGetTree)
-	apiMux.HandleFunc("/get-regions", webGetRegions)
-	apiMux.HandleFunc("/get-table", webGetTable)
-	apiMux.HandleFunc("/get-region-info", webRegionInfo)
+	apiMux.Handle("/get-tree", webHandler(webGetTree))
+	apiMux.Handle("/get-regions", webHandler(webGetRegions))
+	apiMux.Handle("/get-table", webHandler(webGetTable))
+	apiMux.Handle("/get-region-info", webHandler(webRegionInfo))
 
 	api := middlewareCORS(apiMux)
 
@@ -72,12 +99,7 @@ func middlewareCORS(next http.Handler) http.Handler {
 		w.Header().Add("Access-Control-Allow-Credentials", "true")
 		w.Header().Add("Access-Control-Allow-Methods", "POST, OPTIONS")
 
-		if r.Method == http.MethodOptions {
-			return
-		}
-
 		if r.Method != http.MethodPost {
-			printWarnLog(r, w, "method not allowed")
 			return
 		}
 
@@ -85,7 +107,7 @@ func middlewareCORS(next http.Handler) http.Handler {
 	})
 }
 
-func webGetTree(w http.ResponseWriter, r *http.Request) {
+func webGetTree(w http.ResponseWriter, r *http.Request) *webError {
 	res := struct {
 		*TablesMeta
 		*epTree
@@ -95,32 +117,32 @@ func webGetTree(w http.ResponseWriter, r *http.Request) {
 
 	res.TablesMeta = GetTablesMeta()
 
-	changeName(res.TreeItem, res.TablesMeta)
+	if err := changeName(res.TreeItem, res.TablesMeta); err != nil {
+		return &webError{err, fmt.Sprintf("change name %v", err)}
+	}
 
 	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(res); err != nil {
-		printWarnLog(r, w, fmt.Sprint("[WEB] json encode ", err))
-		return
+		return &webError{err, fmt.Sprintf("json encode %v", err)}
 	}
+	return nil
 }
 
-func webRegionInfo(w http.ResponseWriter, r *http.Request) {
+func webRegionInfo(w http.ResponseWriter, r *http.Request) *webError {
 	response := struct {
 		RegionID int `json:"region_id"`
 	}{}
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&response); err != nil {
-		printWarnLog(r, w, fmt.Sprint("[WEB] json decode", err))
-		return
+		return &webError{err, fmt.Sprintf("json encode %v", err)}
 	}
 
 	regionInfo := new(RegionInfo)
 
 	isEmpty, err := regionInfo.Fill(response.RegionID)
 	if err != nil {
-		printWarnLog(r, w, fmt.Sprint("[WEB] fill region", err))
-		return
+		return &webError{err, fmt.Sprintf("fill region %v", err)}
 	}
 	encoder := json.NewEncoder(w)
 
@@ -132,51 +154,50 @@ func webRegionInfo(w http.ResponseWriter, r *http.Request) {
 		response.Empty = !isEmpty
 
 		if err := encoder.Encode(response); err != nil {
-			printWarnLog(r, w, fmt.Sprint("[WEB] json encode", err))
-			return
+			return &webError{err, fmt.Sprintf("json encode %v", err)}
 		}
-		return
+		return nil
 	}
 
 	if err := encoder.Encode(regionInfo); err != nil {
-		printWarnLog(r, w, fmt.Sprint("[WEB] json encode", err))
-		return
+		return &webError{err, fmt.Sprintf("json encode %v", err)}
 	}
+	return nil
 }
 
-func webGetRegions(w http.ResponseWriter, r *http.Request) {
+func webGetRegions(w http.ResponseWriter, r *http.Request) *webError {
 	regions := new(Regions)
 
 	if err := regions.Fetch(); err != nil {
-		printWarnLog(r, w, fmt.Sprint("[WEB]", err))
-		return
+		return &webError{err, fmt.Sprintf("fetch region %v", err)}
 	}
 
 	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(regions); err != nil {
-		printWarnLog(r, w, fmt.Sprint("[WEB] json encode", err))
-		return
+		return &webError{err, fmt.Sprintf("json encode %v", err)}
 	}
+	return nil
 }
 
-func webGetTable(w http.ResponseWriter, r *http.Request) {
+func webGetTable(w http.ResponseWriter, r *http.Request) *webError {
 
 	tblInfo := new(RequestTableInfo)
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(tblInfo); err != nil {
-		printWarnLog(r, w, fmt.Sprintf("[WEB] error deode json: %v", err))
-		return
+		return &webError{err, fmt.Sprintf("json decode %v", err)}
 	}
 
 	t := new(Table)
 	if err := t.Fetch(tblInfo); err != nil {
-		printWarnLog(r, w, fmt.Sprint("[WEB] json encode", err))
-		return
+		return &webError{err, fmt.Sprintf("json encode %v", err)}
 	}
 
 	encoder := json.NewEncoder(w)
-	encoder.Encode(t)
+	if err := encoder.Encode(t); err != nil {
+		return &webError{err, fmt.Sprintf("json encode %v", err)}
+	}
+	return nil
 }
 
 func changeName(t []*nodeEpTree, table *TablesMeta) error {
@@ -199,13 +220,4 @@ func changeName(t []*nodeEpTree, table *TablesMeta) error {
 		sumError = append(sumError, fmt.Sprint(changeName(node.TreeItem, table)))
 	}
 	return fmt.Errorf("%v", strings.Join(sumError, " "))
-}
-
-func printWarnLog(r *http.Request, w http.ResponseWriter, info string) {
-	http.Error(w, "some errors", http.StatusServiceUnavailable)
-	GetConfig().Warn.Printf("[WEB] %v connect from %v, %v	", r.URL.Path, r.RemoteAddr, info)
-}
-
-func printInfoLog(r *http.Request) {
-	GetConfig().Info.Printf("[WEB] %v connectMSSQL from %v", r.URL.Path, r.RemoteAddr)
 }
