@@ -25,9 +25,9 @@ var (
 	_onceHeaders    sync.Once
 	_headers        *Headers
 	_onceTablesMeta sync.Once
-	_tablesMata     *TablesMeta
+	_tablesMata     *map[int]TableInfo
 	_onceEmptyText  sync.Once
-	_emptyText      *EmptyText
+	_emptyText      *map[int]map[int]string
 )
 
 //GetConfig получение объекта конфига
@@ -97,31 +97,45 @@ func GetEpTree() *epTree {
 func GetHeaders() *Headers {
 	_onceHeaders.Do(func() {
 		_headers = new(Headers)
-		if err := _headers.Fetch(); err != nil {
+
+		h, err := NewDatabase().GetHeaders()
+		if err != nil {
 			log.Fatal(err)
 		}
+
+		*_headers = *h
+
 	})
 
 	return _headers
 }
 
-func GetTablesMeta() *TablesMeta {
+func GetTablesMeta() *map[int]TableInfo {
 	_onceTablesMeta.Do(func() {
-		_tablesMata = new(TablesMeta)
-		if err := _tablesMata.Fetch(); err != nil {
-			log.Println(err)
+
+		_tablesMata = new(map[int]TableInfo)
+
+		tm, err := NewDatabase().GetTablesInfo()
+		if err != nil {
+			return
 		}
+
+		*_tablesMata = tm
 	})
 	return _tablesMata
 }
 
 //
-func GetEmptyText() *EmptyText{
+func GetEmptyText() *map[int]map[int]string {
 	_onceEmptyText.Do(func() {
-		_emptyText = new(EmptyText)
-		if err := _emptyText.Fetch(); err != nil {
+		_emptyText = new(map[int]map[int]string)
+
+		et, err := NewDatabase().getTextForEmptyTable()
+		if err != nil {
 			log.Fatal(err)
 		}
+
+		*_emptyText = et
 	})
 	return _emptyText
 }
