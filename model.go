@@ -154,12 +154,6 @@ func (d *Database) GetRegions() ([]Region, error) {
 }
 
 //RequestTableInfo информация от пользвателя для выдачи таблицы
-type RequestTableInfo struct {
-	User     string `json:"user"`
-	RegionID int    `json:"region_id"`
-	TableID  int    `json:"table_id"`
-}
-
 type TableInfo struct {
 	DBTable string
 	VisName string
@@ -330,7 +324,7 @@ func (d *Database) GetHeaders() (*Headers, error) {
 //EmptyText кеш инфомрации для пустых таблиц
 
 //Fetch получение данных с базы
-func (d *Database) getTextForEmptyTable() (map[int]map[int]string, error) {
+func (d *Database) GetTextForEmptyTable() (map[int]map[int]string, error) {
 	defer d.close()
 
 	rows, err := d.DB.Query(sqlGetEmptyText)

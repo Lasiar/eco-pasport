@@ -130,7 +130,7 @@ func GetEmptyText() *map[int]map[int]string {
 	_onceEmptyText.Do(func() {
 		_emptyText = new(map[int]map[int]string)
 
-		et, err := NewDatabase().getTextForEmptyTable()
+		et, err := NewDatabase().GetTextForEmptyTable()
 		if err != nil {
 			log.Fatal(err)
 		}

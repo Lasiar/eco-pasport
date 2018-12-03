@@ -108,7 +108,7 @@ func middlewareCORS(next http.Handler) http.Handler {
 
 func webGetTree(w http.ResponseWriter, r *http.Request) *webError {
 	res := struct {
-		*TablesMeta
+		TablesMeta *map[int]TableInfo
 		*epTree
 	}{}
 
@@ -137,9 +137,7 @@ func webRegionInfo(w http.ResponseWriter, r *http.Request) *webError {
 		return &webError{err, fmt.Sprintf("json encode %v", err)}
 	}
 
-	regionInfo := new(RegionInfo)
-
-	isEmpty, err := regionInfo.Fill(response.RegionID)
+	regionInfo, isEmpty, err := NewDatabase().GetRegionInfo(response.RegionID)
 	if err != nil {
 		return &webError{err, fmt.Sprintf("fill region %v", err)}
 	}
@@ -165,9 +163,8 @@ func webRegionInfo(w http.ResponseWriter, r *http.Request) *webError {
 }
 
 func webGetRegions(w http.ResponseWriter, r *http.Request) *webError {
-	regions := new(Regions)
-
-	if err := regions.Fetch(); err != nil {
+	regions, err := NewDatabase().GetRegions()
+	if err != nil {
 		return &webError{err, fmt.Sprintf("fetch region %v", err)}
 	}
 
@@ -180,15 +177,19 @@ func webGetRegions(w http.ResponseWriter, r *http.Request) *webError {
 
 func webGetTable(w http.ResponseWriter, r *http.Request) *webError {
 
-	tblInfo := new(RequestTableInfo)
+	tblInfo := &struct {
+		User     string `json:"user"`
+		RegionID int    `json:"region_id"`
+		TableID  int    `json:"table_id"`
+	}{}
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(tblInfo); err != nil {
 		return &webError{err, fmt.Sprintf("json decode %v", err)}
 	}
 
-	t := new(Table)
-	if err := t.Fetch(tblInfo); err != nil {
+	t, err := NewDatabase().GetTable(tblInfo.User, tblInfo.RegionID, tblInfo.TableID)
+	if err != nil {
 		return &webError{err, fmt.Sprintf("json encode %v", err)}
 	}
 
@@ -199,7 +200,7 @@ func webGetTable(w http.ResponseWriter, r *http.Request) *webError {
 	return nil
 }
 
-func changeName(t []*nodeEpTree, table *TablesMeta) error {
+func changeName(t []*nodeEpTree, table *map[int]TableInfo) error {
 	var sumError []string
 	for _, node := range t {
 		if node.Name == "" {
