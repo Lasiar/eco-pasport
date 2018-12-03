@@ -22,6 +22,8 @@ const (
 	`
 ) */
 
+	sqlGetInfoRegion string = `SELECT Admin_center, Creation_date, Population, Area, Caption  FROM krasecology.eco_2018.Table_0_4_Regions_info WHERE Region_ID=?;`
+
 	// TODO: переделать на уровне базы этот шлак
 	sqlGetTableSpecial string = `select
 	p1.[Year],
@@ -37,7 +39,10 @@ const (
 	p2.Waste_receipt_import,
 	p2.Processed_waste,
 	p2.Recycled_waste_all,
+	p2.Recycled_waste_of_them_recycling,
 	p2.Recycled_waste_of_them_processed,
+	p2.Neutralized_all,
+	p2.Neutralized_processed,
 	p2.Waste_transfer_processing,
 	p2.Waste_transfer_utilization,
 	p2.Waste_transfer_neutralization,
@@ -45,14 +50,18 @@ const (
 	p2.Waste_transfer_burial,
 	p2.Waste_disposal_storage,
 	p2.Waste_disposal_burial,
-	p2.End_of_the_year
+	p2.End_of_the_year,
+	p1.[Source]
 FROM
 	eco_2018.Table_1_11_part_1 p1
 INNER JOIN eco_2018.Table_1_11_part_2 p2 on
 	p2.ID_p3 = p1.ID
 	and p2.ID_Area = ?`
-	sqlGetTables  string = "SELECT Table_ID, DB_Name, VisName FROM krasecology.eco_2018.Table_0_1_Tables"
+
+	sqlGetTables string = "SELECT Table_ID, DB_Name, VisName FROM krasecology.eco_2018.Table_0_1_Tables"
+
 	sqlGetRegions string = "SELECT id, num_region, name, cast(iif(is_town = 1,1,0) as BIT) from krasecology.eco_2018.Table_0_0_Regions"
+
 	sqlGetHeaders string = `select
 	table_id,
 	'' as DB_Name,
@@ -69,8 +78,10 @@ union SELECT
 	null as header
 from
 	krasecology.eco_2018.Table_0_2_Columns`
+
 	sqlGetEmptyText string = "SELECT Table_ID, Region_ID, Empty_text FROM krasecology.eco_2018.Table_0_3_Empty_text"
-	sqlGetSQL       string = `
+
+	sqlGetSQL string = `
 USE krasecology;
 
 declare @SQL varchar(max) EXECUTE eco_2018.sp_get_table ?,
@@ -176,7 +187,7 @@ func (t *TablesMeta) Fetch() error {
 //Table отдаваемая пользователю таблица
 type Table struct {
 	Header            []string `json:",omitempty"`
-	HeaderAsHtml      string `json:",omitempty"`
+	HeaderAsHtml      string   `json:",omitempty"`
 	Value             [][]string
 	InfoForEmptyValue string `json:",omitempty"`
 }
@@ -237,7 +248,6 @@ func (t *Table) Fetch(info *RequestTableInfo) error {
 			return fmt.Errorf("[DB] rows scan %v", err)
 		}
 
-
 		for j, raw := range rawResult {
 			if raw == nil {
 				result[j] = ""
@@ -250,7 +260,7 @@ func (t *Table) Fetch(info *RequestTableInfo) error {
 		t.Value = append(t.Value, result)
 	}
 
-	if v, ok :=  (*GetEmptyText())[info.TableID][info.RegionID]; ok {
+	if v, ok := (*GetEmptyText())[info.TableID][info.RegionID]; ok {
 		t.InfoForEmptyValue = v
 	}
 
@@ -342,4 +352,50 @@ func (e *EmptyText) Fetch() error {
 		(*e)[tableID][regionID] = emptyText
 	}
 	return nil
+}
+
+type RegionInfo struct {
+	AdminCenter  string
+	CreationDate int
+	Population   string
+	Area         string
+	Caption      string
+}
+
+func (ri *RegionInfo) Fill(id int) (bool, error) {
+	db := new(database)
+	if err := db.connectMSSQL(); err != nil {
+		return false, err
+	}
+
+	defer db.Close()
+
+	row := db.QueryRow(sqlGetInfoRegion, id)
+	var (
+		adminCenter  string
+		creationDate int
+		population   string
+		area         string
+		caption      string
+	)
+
+	err := row.Scan(&adminCenter, &creationDate, &population, &area, &caption)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+
+	*ri = RegionInfo{
+		AdminCenter:
+		adminCenter,
+		CreationDate: creationDate,
+		Population:   population,
+		Area:         area,
+		Caption:      caption,
+	}
+
+	return true, nil
 }

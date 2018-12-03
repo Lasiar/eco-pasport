@@ -79,7 +79,7 @@ func (e *epTree) loadTree(path string) {
 
 	d := xml.NewDecoder(file)
 
-	if d.Decode(&e) != nil {
+	if err := d.Decode(&e); err != nil {
 		GetConfig().Err.Fatalf("Can`t read tree file from %v err %v", path, err)
 	}
 }

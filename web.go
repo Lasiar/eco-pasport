@@ -17,6 +17,7 @@ func run() {
 	apiMux.HandleFunc("/get-tree", webGetTree)
 	apiMux.HandleFunc("/get-regions", webGetRegions)
 	apiMux.HandleFunc("/get-table", webGetTable)
+	apiMux.HandleFunc("/get-region-info", webRegionInfo)
 
 	api := middlewareCORS(apiMux)
 
@@ -98,7 +99,47 @@ func webGetTree(w http.ResponseWriter, r *http.Request) {
 
 	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(res); err != nil {
-		printWarnLog(r, w, fmt.Sprint("[WEB] json ecode", err))
+		printWarnLog(r, w, fmt.Sprint("[WEB] json encode ", err))
+		return
+	}
+}
+
+func webRegionInfo(w http.ResponseWriter, r *http.Request) {
+	response := struct {
+		RegionID int `json:"region_id"`
+	}{}
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&response); err != nil {
+		printWarnLog(r, w, fmt.Sprint("[WEB] json decode", err))
+		return
+	}
+
+	regionInfo := new(RegionInfo)
+
+	isEmpty, err := regionInfo.Fill(response.RegionID)
+	if err != nil {
+		printWarnLog(r, w, fmt.Sprint("[WEB] fill region", err))
+		return
+	}
+	encoder := json.NewEncoder(w)
+
+	if !isEmpty {
+		response := struct {
+			Empty bool
+		}{}
+
+		response.Empty = !isEmpty
+
+		if err := encoder.Encode(response); err != nil {
+			printWarnLog(r, w, fmt.Sprint("[WEB] json encode", err))
+			return
+		}
+		return
+	}
+
+	if err := encoder.Encode(regionInfo); err != nil {
+		printWarnLog(r, w, fmt.Sprint("[WEB] json encode", err))
 		return
 	}
 }
