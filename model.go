@@ -22,7 +22,8 @@ const (
 	EXECUTE (@sql)
 	`
 ) */
-
+	sqlGetCenterArea string = `SELECT lat, lng from krasecology.eco_2018.Table_0_0_Regions where ID = ?`
+	sqlGetPoints     string = `SELECT org_name, Adress, Waste_generation_for_the_year, lat, lng from krasecology.eco_2018.v_PopUp_Info where ID_Area=?`
 	sqlGetInfoRegion string = `SELECT Admin_center, Creation_date, Population, Area, Caption  FROM krasecology.eco_2018.Table_0_4_Regions_info WHERE Region_ID=?;`
 
 	// TODO: переделать на уровне базы этот шлак
@@ -393,4 +394,43 @@ func (d *Database) GetRegionInfo(id int) (*RegionInfo, bool, error) {
 	}
 
 	return regionInfo, true, nil
+}
+
+type Point struct {
+	Name                      string
+	Address                   string
+	WasteGenerationForTheYear float64
+	Latitude                  float64
+	Longitude                 float64
+}
+
+func (d *Database) GetMap(regionID int) ([2]float64, []Point, error) {
+	if d.err != nil {
+		return [2]float64{}, nil, d.err
+	}
+
+	defer d.close()
+
+	centerArea := [2]float64{}
+
+	if err := d.DB.QueryRow(sqlGetCenterArea, regionID).Scan(&centerArea); err != nil {
+		return [2]float64{}, nil, err
+	}
+
+	rows, err := d.DB.Query(sqlGetPoints, regionID)
+	if err != nil {
+		return [2]float64{}, nil, err
+	}
+
+	points := new([]Point)
+
+	for rows.Next() {
+		point := new(Point)
+		if err := rows.Scan(&point.Name, &point.Address, &point.WasteGenerationForTheYear, &point.Latitude, &point.Longitude); err != nil {
+			return [2]float64{}, nil, err
+		}
+
+		*points = append(*points, *point)
+	}
+	return centerArea, *points, nil
 }
