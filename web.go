@@ -46,6 +46,7 @@ func run() {
 	apiMux.Handle("/get-regions", webHandler(webGetRegions))
 	apiMux.Handle("/get-table", webHandler(webGetTable))
 	apiMux.Handle("/get-region-info", webHandler(webRegionInfo))
+	apiMux.Handle("/get-region-map", webHandler(webGetMap))
 
 	//	api := middlewareCORS(apiMux)
 
@@ -204,6 +205,37 @@ func webGetTable(w http.ResponseWriter, r *http.Request) *webError {
 	if err := encoder.Encode(t); err != nil {
 		return &webError{err, fmt.Sprintf("json encode %v", err)}
 	}
+	return nil
+}
+
+func webGetMap(w http.ResponseWriter, r *http.Request) *webError {
+	req := struct {
+		RegionID int `json:"region_id"`
+	}{}
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&req); err != nil {
+		return &webError{err, fmt.Sprintf("json encode %v", err)}
+	}
+
+	center, points, err := NewDatabase().GetMap(req.RegionID)
+	if err != nil {
+		return &webError{err, fmt.Sprintf("get map %v", err)}
+	}
+
+	response := struct {
+		Center *[]float64
+		Points []Point
+	}{}
+
+	response.Points = points
+	response.Center = center
+
+	encoder := json.NewEncoder(w)
+	if err := encoder.Encode(response); err != nil {
+		return &webError{err, fmt.Sprintf("json encode %v", err)}
+	}
+
 	return nil
 }
 

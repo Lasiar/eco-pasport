@@ -404,22 +404,30 @@ type Point struct {
 	Longitude                 float64
 }
 
-func (d *Database) GetMap(regionID int) ([2]float64, []Point, error) {
+func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 	if d.err != nil {
-		return [2]float64{}, nil, d.err
+		return nil, nil, d.err
 	}
 
 	defer d.close()
 
-	centerArea := [2]float64{}
+	centerArea := new([]float64)
 
-	if err := d.DB.QueryRow(sqlGetCenterArea, regionID).Scan(&centerArea); err != nil {
-		return [2]float64{}, nil, err
+	center := struct {
+		lat sql.NullFloat64
+		lng sql.NullFloat64
+	}{}
+
+	if err := d.DB.QueryRow(sqlGetCenterArea, regionID).Scan(&center.lat, &center.lng); err != nil {
+		return nil, nil, fmt.Errorf("[DB] get center %v", err)
 	}
+
+	*centerArea = append(*centerArea, center.lat.Float64)
+	*centerArea = append(*centerArea, center.lng.Float64)
 
 	rows, err := d.DB.Query(sqlGetPoints, regionID)
 	if err != nil {
-		return [2]float64{}, nil, err
+		return nil, nil, err
 	}
 
 	points := new([]Point)
@@ -427,7 +435,7 @@ func (d *Database) GetMap(regionID int) ([2]float64, []Point, error) {
 	for rows.Next() {
 		point := new(Point)
 		if err := rows.Scan(&point.Name, &point.Address, &point.WasteGenerationForTheYear, &point.Latitude, &point.Longitude); err != nil {
-			return [2]float64{}, nil, err
+			return nil, nil, err
 		}
 
 		*points = append(*points, *point)
