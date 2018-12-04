@@ -81,7 +81,7 @@ func middlewareLogging(logger *log.Logger) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			defer func() {
-				logger.Println(r.Method, r.URL.Path, r.RemoteAddr, r.UserAgent(), time.Since(start))
+				logger.Println(r.Method, r.URL.Path, r.RemoteAddr, r.UserAgent(), "time: ", time.Since(start))
 			}()
 			next.ServeHTTP(w, r)
 		})
