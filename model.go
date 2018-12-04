@@ -93,14 +93,19 @@ EXECUTE (@sql)
 )
 
 type Database struct {
-	DB *sql.DB
+	DB  *sql.DB
+	err error
+}
+
+func (d *Database) Error() string {
+	return d.err.Error()
 }
 
 func NewDatabase() *Database {
 	db := new(Database)
 	if err := db.connectMSSQL(); err != nil {
-		log.Printf("[DB CONNECT] %v", err)
-		return nil
+		db.err = fmt.Errorf("[DB CONNECT] %v", err)
+		return db
 	}
 	return db
 }
@@ -111,11 +116,7 @@ func (d *Database) connectMSSQL() (err error) {
 		return err
 	}
 
-	if err := d.DB.Ping(); err != nil {
-		return err
-	}
-
-	return nil
+	return d.DB.Ping()
 }
 
 func (d *Database) close() {
@@ -133,6 +134,9 @@ type Region struct {
 
 //Fetch получение данных с базы
 func (d *Database) GetRegions() ([]Region, error) {
+	if d.err != nil {
+		return nil, d.err
+	}
 	defer d.close()
 
 	rows, err := d.DB.Query(sqlGetRegions)
@@ -161,6 +165,9 @@ type TableInfo struct {
 
 //Fetch получение данных с базы
 func (d *Database) GetTablesInfo() (map[int]TableInfo, error) {
+	if d.err != nil {
+		return nil, d.err
+	}
 	defer d.close()
 
 	rows, err := d.DB.Query(sqlGetTables)
@@ -197,6 +204,10 @@ type Table struct {
 
 //Fetch получение данных с базы
 func (d *Database) GetTable(user string, regionID int, tableID int) (*Table, error) {
+	if d.err != nil {
+		return nil, d.err
+	}
+
 	defer d.close()
 
 	var (
@@ -274,6 +285,9 @@ type Headers map[int]struct {
 
 //Fetch получение данных с базы
 func (d *Database) GetHeaders() (*Headers, error) {
+	if d.err != nil {
+		return nil, d.err
+	}
 	defer d.close()
 
 	rows, err := d.DB.Query(sqlGetHeaders)
@@ -301,23 +315,20 @@ func (d *Database) GetHeaders() (*Headers, error) {
 			return nil, err
 		}
 
-		h := struct {
-			Columns map[string]string
-			HTML    string
-		}{}
-
 		if row.htmlHeader.Valid {
-			h.HTML = row.htmlHeader.String
-			(*headers)[row.tableID] = h
+			x := (*headers)[row.tableID]
+			x.HTML = row.htmlHeader.String
+			(*headers)[row.tableID] = x
 			continue
 		}
 
-		if (*headers)[row.tableID].Columns == nil {
-			h.Columns = make(map[string]string)
+		x := (*headers)[row.tableID]
+		if x.Columns == nil {
+			x.Columns = make(map[string]string)
 		}
-		(*headers)[row.tableID].Columns[row.dbName] = row.visName
+		x.Columns[row.dbName] = row.visName
+		(*headers)[row.tableID] = x
 	}
-
 	return headers, nil
 }
 
@@ -325,6 +336,9 @@ func (d *Database) GetHeaders() (*Headers, error) {
 
 //Fetch получение данных с базы
 func (d *Database) GetTextForEmptyTable() (map[int]map[int]string, error) {
+	if d.err != nil {
+		return nil, d.err
+	}
 	defer d.close()
 
 	rows, err := d.DB.Query(sqlGetEmptyText)
@@ -363,13 +377,14 @@ type RegionInfo struct {
 }
 
 func (d *Database) GetRegionInfo(id int) (*RegionInfo, bool, error) {
+	if d.err != nil {
+		return nil, false, d.err
+	}
 	defer d.close()
 
 	regionInfo := new(RegionInfo)
 
-	row := d.DB.QueryRow(sqlGetInfoRegion, id)
-
-	err := row.Scan(&regionInfo.AdminCenter, &regionInfo.CreationDate, &regionInfo.Population, &regionInfo.Area, &regionInfo.Caption)
+	err := d.DB.QueryRow(sqlGetInfoRegion, id).Scan(&regionInfo.AdminCenter, &regionInfo.CreationDate, &regionInfo.Population, &regionInfo.Area, &regionInfo.Caption)
 	if err == sql.ErrNoRows {
 		return nil, false, nil
 	}

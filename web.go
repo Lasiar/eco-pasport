@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -27,7 +27,9 @@ func (wh webHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		request := struct {
 			Message string
-		}{e.Message}
+		}{}
+
+		request.Message = e.Message
 
 		if err := encoder.Encode(request); err != nil {
 			log.Printf("[WEB] %v", err)
@@ -45,7 +47,11 @@ func run() {
 	apiMux.Handle("/get-table", webHandler(webGetTable))
 	apiMux.Handle("/get-region-info", webHandler(webRegionInfo))
 
-	api := middlewareCORS(apiMux)
+	//	api := middlewareCORS(apiMux)
+
+	logger := log.New(os.Stdout, "[connect] ", log.Flags())
+
+	api := middlewareCORS(middlewareLogging(logger)(apiMux))
 
 	staticMux := http.NewServeMux()
 
@@ -73,8 +79,9 @@ func run() {
 func middlewareLogging(logger *log.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
 			defer func() {
-				logger.Println(r.Method, r.URL.Path, r.RemoteAddr, r.UserAgent())
+				logger.Println(r.Method, r.URL.Path, r.RemoteAddr, r.UserAgent(), time.Since(start))
 			}()
 			next.ServeHTTP(w, r)
 		})
@@ -139,7 +146,7 @@ func webRegionInfo(w http.ResponseWriter, r *http.Request) *webError {
 
 	regionInfo, isEmpty, err := NewDatabase().GetRegionInfo(response.RegionID)
 	if err != nil {
-		return &webError{err, fmt.Sprintf("fill region %v", err)}
+		return &webError{err, fmt.Sprintf("get region %v", err)}
 	}
 	encoder := json.NewEncoder(w)
 
@@ -165,7 +172,7 @@ func webRegionInfo(w http.ResponseWriter, r *http.Request) *webError {
 func webGetRegions(w http.ResponseWriter, r *http.Request) *webError {
 	regions, err := NewDatabase().GetRegions()
 	if err != nil {
-		return &webError{err, fmt.Sprintf("fetch region %v", err)}
+		return &webError{err, fmt.Sprintf("get region %v", err)}
 	}
 
 	encoder := json.NewEncoder(w)
@@ -219,5 +226,5 @@ func changeName(t []*nodeEpTree, table *map[int]TableInfo) error {
 
 		sumError = append(sumError, fmt.Sprint(changeName(node.TreeItem, table)))
 	}
-	return fmt.Errorf("%v", strings.Join(sumError, " "))
+	return nil
 }
