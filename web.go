@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -19,17 +20,24 @@ type webHandler func(http.ResponseWriter, *http.Request) *webError
 
 func (wh webHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if e := wh(w, r); e != nil {
+
+		request := struct {
+			Message string `json:"message"`
+			Code    int    `json:"code"`
+		}{}
 		encoder := json.NewEncoder(w)
+
+		switch e.Error {
+		case sql.ErrNoRows:
+			request.Message = "Нет данных по данному запросу"
+			request.Code = 100
+		default:
+			request.Message = e.Message
+		}
 
 		log.Printf("[WEB] %v %v [METНOD] %v [URL] %v [USER AGENT] %v", e.Message, e.Error, r.Method, r.URL, r.UserAgent())
 
 		w.WriteHeader(http.StatusInternalServerError)
-
-		request := struct {
-			Message string
-		}{}
-
-		request.Message = e.Message
 
 		if err := encoder.Encode(request); err != nil {
 			log.Printf("[WEB] %v", err)
@@ -52,21 +60,12 @@ func run() {
 
 	logger := log.New(os.Stdout, "[connect] ", log.Flags())
 
-	api := middlewareCORS(middlewareLogging(logger)(apiMux))
+	api := middlewareCORS(middlewareLogging(logger)(http.StripPrefix("/api",apiMux)))
 
-	staticMux := http.NewServeMux()
-
-	staticMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "data/index.html")
-	})
-
-	staticMux.Handle("/api/", http.StripPrefix("/api", api))
-
-	staticMux.Handle("/data/", http.StripPrefix("/data/", middlewareSetCacheControl(http.FileServer(http.Dir("./data")))))
 
 	webServer := &http.Server{
 		Addr:           GetConfig().Port,
-		Handler:        staticMux,
+		Handler:        api,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
@@ -91,7 +90,6 @@ func middlewareLogging(logger *log.Logger) func(http.Handler) http.Handler {
 
 func middlewareSetCacheControl(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("fuck")
 		w.Header().Set("Last-Modified", time.Now().Format(http.TimeFormat))
 		w.Header().Set("Cache-Control", "max-age:290304000, public")
 		w.Header().Set("Expires", time.Now().AddDate(60, 0, 0).Format(http.TimeFormat))
@@ -235,6 +233,8 @@ func webGetMap(w http.ResponseWriter, r *http.Request) *webError {
 	if err := encoder.Encode(response); err != nil {
 		return &webError{err, fmt.Sprintf("json encode %v", err)}
 	}
+
+	//fmt.Fprint(w, `{"Center":[56.26358,90.49446],"Points":[{"Name":"МКУ \"Центр бухучета\"","Address":"662150, Красноярский край, г. Ачинск, 1-й микрорайон, 27, пом. 1","WasteGenerationForTheYear":5.675,"Latitude":56.26278,"Longitude":90.48457},{"Name":"ОСП Ачинский почтамт УФПС Красноярского края-филиала ФГУП \"Почта России\"","Address":"662150, Красноярский край, г. Ачинск, 1-й микрорайон, 43","WasteGenerationForTheYear":50.139,"Latitude":56.26433,"Longitude":90.49235}]}`)
 
 	return nil
 }

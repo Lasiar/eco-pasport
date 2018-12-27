@@ -23,8 +23,8 @@ const (
 	`
 ) */
 	sqlGetCenterArea string = `SELECT lat, lng from krasecology.eco_2018.Table_0_0_Regions where ID = ?`
-	sqlGetPoints     string = `SELECT org_name, Adress, Waste_generation_for_the_year, lat, lng from krasecology.eco_2018.v_PopUp_Info where ID_Area=?`
-	sqlGetInfoRegion string = `SELECT Admin_center, Creation_date, Population, Area, Caption  FROM krasecology.eco_2018.Table_0_4_Regions_info WHERE Region_ID=?;`
+	sqlGetPoints     string = `SELECT org_name, Adress, Waste_generation_for_the_year,Allotted_wastewater_total , lat, lng from krasecology.eco_2018.v_PopUp_Info where ID_Area=?`
+	sqlGetInfoRegion string = `SELECT Admin_center, Creation_date, Population, Area, Gross_emissions, Withdrawn_water, Discharge_volume,Formed_waste  FROM eco_2018.Table_0_4_Regions_info WHERE Region_ID=?;`
 
 	// TODO: переделать на уровне базы этот шлак
 	sqlGetTableSpecial string = `select
@@ -370,11 +370,18 @@ func (d *Database) GetTextForEmptyTable() (map[int]map[int]string, error) {
 }
 
 type RegionInfo struct {
-	AdminCenter  string
-	CreationDate int
-	Population   string
-	Area         string
-	Caption      string
+	GeneralInformation struct {
+		AdminCenter  string
+		CreationDate int
+		Population   string
+		Area         string
+	}
+	EnvironmentalAssessment struct {
+		GrossEmissions  string
+		WithdrawnWater  string
+		DischargeVolume string
+		FormedWaste     string
+	}
 }
 
 func (d *Database) GetRegionInfo(id int) (*RegionInfo, bool, error) {
@@ -385,12 +392,27 @@ func (d *Database) GetRegionInfo(id int) (*RegionInfo, bool, error) {
 
 	regionInfo := new(RegionInfo)
 
-	err := d.DB.QueryRow(sqlGetInfoRegion, id).Scan(&regionInfo.AdminCenter, &regionInfo.CreationDate, &regionInfo.Population, &regionInfo.Area, &regionInfo.Caption)
+	var (
+		tmpArea sql.NullString
+	)
+	err := d.DB.QueryRow(sqlGetInfoRegion, id).Scan(&regionInfo.GeneralInformation.AdminCenter,
+		&regionInfo.GeneralInformation.CreationDate,
+		&regionInfo.GeneralInformation.Population,
+		&tmpArea,
+		&regionInfo.EnvironmentalAssessment.GrossEmissions,
+		&regionInfo.EnvironmentalAssessment.WithdrawnWater,
+		&regionInfo.EnvironmentalAssessment.DischargeVolume,
+		&regionInfo.EnvironmentalAssessment.FormedWaste)
+
 	if err == sql.ErrNoRows {
 		return nil, false, nil
 	}
 	if err != nil {
 		return nil, false, err
+	}
+
+	if tmpArea.Valid {
+		regionInfo.GeneralInformation.Area = tmpArea.String
 	}
 
 	return regionInfo, true, nil
@@ -399,7 +421,8 @@ func (d *Database) GetRegionInfo(id int) (*RegionInfo, bool, error) {
 type Point struct {
 	Name                      string
 	Address                   string
-	WasteGenerationForTheYear float64
+	WasteGenerationForTheYear string
+	AllottedWastewaterTotal   string
 	Latitude                  float64
 	Longitude                 float64
 }
@@ -418,12 +441,16 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 		lng sql.NullFloat64
 	}{}
 
-	if err := d.DB.QueryRow(sqlGetCenterArea, regionID).Scan(&center.lat, &center.lng); err != nil {
+	err := d.DB.QueryRow(sqlGetCenterArea, regionID).Scan(&center.lat, &center.lng)
+	if err != nil {
 		return nil, nil, fmt.Errorf("[DB] get center %v", err)
 	}
 
-	*centerArea = append(*centerArea, center.lat.Float64)
-	*centerArea = append(*centerArea, center.lng.Float64)
+	if !center.lat.Valid || !center.lng.Valid {
+		return nil, nil, sql.ErrNoRows
+	}
+
+	*centerArea = append(*centerArea, []float64{center.lat.Float64, center.lng.Float64}...)
 
 	rows, err := d.DB.Query(sqlGetPoints, regionID)
 	if err != nil {
@@ -433,12 +460,25 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 	points := new([]Point)
 
 	for rows.Next() {
-		point := new(Point)
-		if err := rows.Scan(&point.Name, &point.Address, &point.WasteGenerationForTheYear, &point.Latitude, &point.Longitude); err != nil {
-			return nil, nil, err
+		var point Point
+		var (
+			tmpAllottedWastewaterTotal sql.NullString
+			tmpPointWasteGenerator     sql.NullString
+		)
+
+		if err := rows.Scan(&point.Name, &point.Address, &tmpPointWasteGenerator, &tmpAllottedWastewaterTotal, &point.Latitude, &point.Longitude); err != nil {
+			return nil, nil, fmt.Errorf("porint %v", err)
 		}
 
-		*points = append(*points, *point)
+		if tmpPointWasteGenerator.Valid {
+			point.WasteGenerationForTheYear = tmpPointWasteGenerator.String
+		}
+
+		if tmpAllottedWastewaterTotal.Valid {
+			point.AllottedWastewaterTotal = tmpAllottedWastewaterTotal.String
+		}
+
+		*points = append(*points, point)
 	}
 	return centerArea, *points, nil
 }
