@@ -22,6 +22,48 @@ const (
 	EXECUTE (@sql)
 	`
 ) */
+	sqlTest string = `sELECT 
+org.ID_Area, 
+org.org_name, 
+org.Adress,  
+t19.Allotted_wastewater_total, 
+t19.Water_object, 
+t11.Waste_generation_for_the_year, 
+t8.Into_the_atmosphere, 
+org.lat, 
+org.lng 
+from 
+eco_2018.Table_0_5_Org org 
+LEFT join ( 
+select 
+p1.Name, 
+p2.Waste_generation_for_the_year 
+from 
+eco_2018.Table_1_11_part_1 p1 
+inner join eco_2018.Table_1_11_part_2 p2 on 
+p2.ID_p3 = p1.ID 
+and p2.Hazard_class = 'всего' ) t11 on 
+t11.Name = org.Org_name 
+left join ( 
+select 
+pd.Allotted_wastewater_total, 
+pd.Water_object, 
+pd.Name 
+from 
+eco_2018.Table_1_9_Pollutant_discharges as pd ) t19 on 
+org.Org_name = t19.name 
+left join( 
+select p1.Name, 
+p2.Into_the_atmosphere 
+from 
+eco_2018.Table_1_8_Pollutants_into_the_atmosphere_p1 p1 
+inner join eco_2018.Table_1_8_Pollutants_into_the_atmosphere_p2 p2 on 
+p2.ID_p1 = p1.ID and p2.Name_of_pollutant = 'всего') t8 on 
+t8.name = org.Org_name
+where org.ID_Area = ?
+order by org.Org_name
+`
+
 	sqlGetCenterArea string = `SELECT lat, lng from krasecology.eco_2018.Table_0_0_Regions where ID = ?`
 	sqlGetPoints     string = `SELECT org_name, Adress, Waste_generation_for_the_year,Allotted_wastewater_total , lat, lng from krasecology.eco_2018.v_PopUp_Info where ID_Area=?`
 	sqlGetInfoRegion string = `SELECT Admin_center, Creation_date, Population, Area, Gross_emissions, Withdrawn_water, Discharge_volume,Formed_waste  FROM eco_2018.Table_0_4_Regions_info WHERE Region_ID=?;`
@@ -86,7 +128,7 @@ from
 	sqlGetSQL string = `
 USE krasecology;
 
-declare @SQL varchar(max) EXECUTE eco_2018.sp_get_table ?,
+declare @SQL varchar(max) EXECUTE eco_2018.sp_get_table ?,?,
 ?,
 @SQL output
 EXECUTE (@sql)
@@ -220,7 +262,7 @@ func (d *Database) GetTable(user string, regionID int, tableID int) (*Table, err
 	case 1014:
 		rows, err = d.DB.Query(sqlGetTableSpecial, regionID)
 	default:
-		rows, err = d.DB.Query(sqlGetSQL, tableID, regionID)
+		rows, err = d.DB.Query(sqlGetSQL, user, tableID, regionID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("[DB] query %v", err)
@@ -423,6 +465,7 @@ type Point struct {
 	Address                   string
 	WasteGenerationForTheYear string
 	AllottedWastewaterTotal   string
+	IntoTheAtmo               string
 	Latitude                  float64
 	Longitude                 float64
 }
@@ -452,33 +495,62 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 
 	*centerArea = append(*centerArea, []float64{center.lat.Float64, center.lng.Float64}...)
 
-	rows, err := d.DB.Query(sqlGetPoints, regionID)
+	rows, err := d.DB.Query(sqlTest, regionID)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	points := new([]Point)
 
+	var tmpName string
+	var tmpWater string
+
+	first := true
+
 	for rows.Next() {
 		var point Point
 		var (
 			tmpAllottedWastewaterTotal sql.NullString
 			tmpPointWasteGenerator     sql.NullString
+			tmpWaterObject             sql.NullString
+			tmpIntoAmto                sql.NullString
 		)
 
-		if err := rows.Scan(&point.Name, &point.Address, &tmpPointWasteGenerator, &tmpAllottedWastewaterTotal, &point.Latitude, &point.Longitude); err != nil {
+		if err := rows.Scan(&point.Name, &point.Address, &tmpAllottedWastewaterTotal, &tmpWaterObject, &tmpPointWasteGenerator, &tmpIntoAmto, &point.Latitude, &point.Longitude); err != nil {
 			return nil, nil, fmt.Errorf("porint %v", err)
 		}
 
-		if tmpPointWasteGenerator.Valid {
-			point.WasteGenerationForTheYear = tmpPointWasteGenerator.String
+		if first {
+			tmpName = point.Name
+
+			tmpWater = fmt.Sprintf("%v - %v; ", tmpWaterObject.String, tmpAllottedWastewaterTotal.String)
+
+			first = false
 		}
 
-		if tmpAllottedWastewaterTotal.Valid {
-			point.AllottedWastewaterTotal = tmpAllottedWastewaterTotal.String
+		if point.Name != tmpName {
+
+			if tmpPointWasteGenerator.Valid {
+				point.WasteGenerationForTheYear = tmpPointWasteGenerator.String
+			}
+
+			if tmpAllottedWastewaterTotal.Valid {
+				point.AllottedWastewaterTotal = tmpAllottedWastewaterTotal.String
+			}
+
+
+			point.AllottedWastewaterTotal = tmpWater
+
+			*points = append(*points, point)
+
+			tmpWater = ""
+
+			tmpName = point.Name
+
 		}
 
-		*points = append(*points, point)
+		tmpWater += fmt.Sprintf("%v - %v; ", tmpWaterObject.String, tmpAllottedWastewaterTotal.String)
+
 	}
 	return centerArea, *points, nil
 }
