@@ -5,6 +5,7 @@ import (
 	"fmt"
 	_ "github.com/denisenkom/go-mssqldb"
 	"log"
+	"strings"
 )
 
 const (
@@ -21,9 +22,9 @@ const (
 	@SQL output
 	EXECUTE (@sql)
 	`
+
 ) */
 	sqlTest string = `sELECT 
-org.ID_Area, 
 org.org_name, 
 org.Adress,  
 t19.Allotted_wastewater_total, 
@@ -63,6 +64,45 @@ t8.name = org.Org_name
 where org.ID_Area = ?
 order by org.Org_name
 `
+
+	sqlSpectial18 string = `select 
+p1.Year,
+p1.Economic_activ,
+p1.Name,
+p1.Emission_permit,
+p2.Name_of_pollutant, 
+p2.Thrown_without_cleaning_all, 
+p2.Thrown_without_cleaning_organized, 
+p2.Received_pollution_treatment, 
+p2.Caught_and_rendered_harmless_all,
+p2.Caught_and_rendered_harmless_utilized, 
+p2.Into_the_atmosphere, 
+p2.Sources_of_pollution_all, 
+p2.Sources_of_pollution_organized, 
+p2.MPE, 
+p2.TAR,
+
+p1.Source
+
+
+from eco_2018.Table_1_8_Pollutants_into_the_atmosphere_p1 p1
+inner join eco_2018.Table_1_8_Pollutants_into_the_atmosphere_p2 p2 on p1.ID = p2.ID_p1
+
+where p1.ID_Area = ?`
+
+	sqSpacial13 string = `SELECT
+	[Year],
+	Fee_total,
+	Over_limit,
+	From_stationary,
+	From_mobile,
+	Discharges,
+	Waste_disposal,
+	PNG,
+	[Source]
+FROM
+	krasecology.eco_2018.Table_3_1_Fee_for_allowable_and_excess_emissions
+where ID_Area = ?`
 
 	sqlGetCenterArea string = `SELECT lat, lng from krasecology.eco_2018.Table_0_0_Regions where ID = ?`
 	sqlGetPoints     string = `SELECT org_name, Adress, Waste_generation_for_the_year,Allotted_wastewater_total , lat, lng from krasecology.eco_2018.v_PopUp_Info where ID_Area=?`
@@ -261,6 +301,10 @@ func (d *Database) GetTable(user string, regionID int, tableID int) (*Table, err
 	switch tableID {
 	case 1014:
 		rows, err = d.DB.Query(sqlGetTableSpecial, regionID)
+	case 1027:
+		rows, err = d.DB.Query(sqlSpectial18, regionID)
+	case 1024:
+		rows, err = d.DB.Query(sqSpacial13, regionID)
 	default:
 		rows, err = d.DB.Query(sqlGetSQL, user, tableID, regionID)
 	}
@@ -503,7 +547,7 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 	points := new([]Point)
 
 	var tmpName string
-	var tmpWater string
+	var tmpWater []string
 
 	first := true
 
@@ -523,7 +567,7 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 		if first {
 			tmpName = point.Name
 
-			tmpWater = fmt.Sprintf("%v - %v; ", tmpWaterObject.String, tmpAllottedWastewaterTotal.String)
+			tmpWater = append(tmpWater, fmt.Sprintf("%v - %v", tmpWaterObject.String, tmpAllottedWastewaterTotal.String))
 
 			first = false
 		}
@@ -534,22 +578,21 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 				point.WasteGenerationForTheYear = tmpPointWasteGenerator.String
 			}
 
-			if tmpAllottedWastewaterTotal.Valid {
-				point.AllottedWastewaterTotal = tmpAllottedWastewaterTotal.String
+			if tmpIntoAmto.Valid {
+				point.IntoTheAtmo =tmpIntoAmto.String
 			}
 
-
-			point.AllottedWastewaterTotal = tmpWater
+			point.AllottedWastewaterTotal = strings.Join(tmpWater, "; ")
 
 			*points = append(*points, point)
 
-			tmpWater = ""
+			tmpWater = nil
 
 			tmpName = point.Name
 
 		}
 
-		tmpWater += fmt.Sprintf("%v - %v; ", tmpWaterObject.String, tmpAllottedWastewaterTotal.String)
+		tmpWater = append(tmpWater, fmt.Sprintf("%v - %v", tmpWaterObject.String, tmpAllottedWastewaterTotal.String))
 
 	}
 	return centerArea, *points, nil
