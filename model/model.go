@@ -1,10 +1,14 @@
-package main
+package model
 
 import (
+	"EcoPasport/base"
 	"database/sql"
+	"encoding/xml"
 	"fmt"
 	_ "github.com/denisenkom/go-mssqldb"
 	"log"
+	"os"
+	"strconv"
 	"strings"
 )
 
@@ -147,7 +151,6 @@ INNER JOIN eco_2018.Table_1_11_part_2 p2 on
 	sqlGetRegions string = "SELECT id, num_region, name, cast(iif(is_town = 1,1,0) as BIT) from krasecology.eco_2018.Table_0_0_Regions"
 
 	sqlGetHeaders string = `select
-	table_id,
 	'' as DB_Name,
 	'' as VisName,
 	header
@@ -155,15 +158,17 @@ from
 	krasecology.eco_2018.Table_0_1_Tables
 where
 	header is not null
+	and Table_ID = ?
 union SELECT
-	Table_ID,
 	column_name,
 	caption,
 	null as header
 from
-	krasecology.eco_2018.Table_0_2_Columns`
+	krasecology.eco_2018.Table_0_2_Columns
+where Table_ID = ?
+`
 
-	sqlGetEmptyText string = "SELECT Table_ID, Region_ID, Empty_text FROM krasecology.eco_2018.Table_0_3_Empty_text"
+	sqlGetEmptyText string = "SELECT Empty_text FROM krasecology.eco_2018.Table_0_3_Empty_text where Table_ID = ? and Region_ID = ?"
 
 	sqlGetSQL string = `
 USE krasecology;
@@ -194,7 +199,7 @@ func NewDatabase() *Database {
 }
 
 func (d *Database) connectMSSQL() (err error) {
-	d.DB, err = sql.Open("mssql", GetConfig().ConnStr)
+	d.DB, err = sql.Open("mssql", base.GetConfig().ConnStr)
 	if err != nil {
 		return err
 	}
@@ -317,7 +322,10 @@ func (d *Database) GetTable(user string, regionID int, tableID int) (*Table, err
 		return nil, fmt.Errorf("[DB] column %v", err)
 	}
 
-	headers := (*GetHeaders())[tableID]
+	headers, err := NewDatabase().GetHeaders(tableID)
+	if err != nil {
+		return nil, fmt.Errorf("[DB] получение заголовгов: %v", err)
+	}
 
 	t := new(Table)
 
@@ -357,102 +365,78 @@ func (d *Database) GetTable(user string, regionID int, tableID int) (*Table, err
 		t.Value = append(t.Value, result)
 	}
 
-	if v, ok := (*GetEmptyText())[tableID][regionID]; ok {
-		t.InfoForEmptyValue = v
+	t.InfoForEmptyValue, err = d.GetTextForEmptyTable(regionID, tableID)
+	if err != nil {
+		return &Table{}, err
 	}
 
 	return t, nil
 }
 
 //Headers кеширование всех хейдоеров
-type Headers map[int]struct {
+type Headers struct {
 	Columns map[string]string
 	HTML    string
 }
 
 //Fetch получение данных с базы
-func (d *Database) GetHeaders() (*Headers, error) {
+func (d *Database) GetHeaders(idTable int) (*Headers, error) {
 	if d.err != nil {
 		return nil, d.err
 	}
 	defer d.close()
 
-	rows, err := d.DB.Query(sqlGetHeaders)
+	rows, err := d.DB.Query(sqlGetHeaders, idTable, idTable)
 	if err != nil {
 		return nil, err
 	}
 
 	headers := new(Headers)
 
-	*headers = make(map[int]struct {
-		Columns map[string]string
-		HTML    string
-	})
+	headers.Columns = make(map[string]string)
 
 	for rows.Next() {
 
 		row := struct {
-			tableID    int
 			dbName     string
 			visName    string
 			htmlHeader sql.NullString
 		}{}
 
-		if err := rows.Scan(&row.tableID, &row.dbName, &row.visName, &row.htmlHeader); err != nil {
+		if err := rows.Scan(&row.dbName, &row.visName, &row.htmlHeader); err != nil {
 			return nil, err
 		}
 
 		if row.htmlHeader.Valid {
-			x := (*headers)[row.tableID]
-			x.HTML = row.htmlHeader.String
-			(*headers)[row.tableID] = x
+			headers.HTML = row.htmlHeader.String
 			continue
+		} else {
+			headers.Columns[row.dbName] = row.visName
 		}
-
-		x := (*headers)[row.tableID]
-		if x.Columns == nil {
-			x.Columns = make(map[string]string)
-		}
-		x.Columns[row.dbName] = row.visName
-		(*headers)[row.tableID] = x
 	}
+
 	return headers, nil
 }
 
-//EmptyText кеш инфомрации для пустых таблиц
-
 //Fetch получение данных с базы
-func (d *Database) GetTextForEmptyTable() (map[int]map[int]string, error) {
+func (d *Database) GetTextForEmptyTable(IDRegion int, IDTable int) (string, error) {
 	if d.err != nil {
-		return nil, d.err
+		return "", d.err
 	}
 	defer d.close()
 
-	rows, err := d.DB.Query(sqlGetEmptyText)
+	var text string
+
+	err := d.DB.QueryRow(sqlGetEmptyText, IDTable, IDRegion).Scan(&text)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("[DB] quer row:  %v", err)
 	}
 
-	textForEmptyTable := make(map[int]map[int]string)
-
-	for rows.Next() {
-
-		row := struct {
-			tableID  int
-			regionID int
-			text     string
-		}{}
-
-		if err := rows.Scan(&row.tableID, &row.regionID, &row.text); err != nil {
-			return nil, err
-		}
-
-		if textForEmptyTable[row.tableID] == nil {
-			textForEmptyTable[row.tableID] = make(map[int]string)
-		}
-		textForEmptyTable[row.tableID][row.regionID] = row.text
-	}
-	return textForEmptyTable, nil
+	return text, nil
 }
 
 type RegionInfo struct {
@@ -579,7 +563,7 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 			}
 
 			if tmpIntoAmto.Valid {
-				point.IntoTheAtmo =tmpIntoAmto.String
+				point.IntoTheAtmo = tmpIntoAmto.String
 			}
 
 			point.AllottedWastewaterTotal = strings.Join(tmpWater, "; ")
@@ -596,4 +580,76 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 
 	}
 	return centerArea, *points, nil
+}
+
+type nodeEpTree struct {
+	Name      string        `xml:"name,attr"`
+	TableID   string        `xml:"table_id,attr" json:",omitempty"`
+	TableName string        `xml:"table_name,attr"  json:",omitempty"`
+	TreeItem  []*nodeEpTree `xml:"TreeItem"  json:",omitempty"`
+}
+
+type epTree struct {
+	TreeItem []*nodeEpTree `xml:"TreeItem"`
+}
+
+func GetTree() (epTree, error) {
+	res := struct {
+		TablesMeta map[int]TableInfo
+		epTree
+	}{}
+
+	res.TablesMeta = make(map[int]TableInfo)
+
+	res.epTree.load("./Tree.xml")
+
+	var err error
+
+	res.TablesMeta, err = NewDatabase().GetTablesInfo()
+	if err != nil {
+		return epTree{}, fmt.Errorf("[DB] get table info: %v", err)
+	}
+
+	fmt.Println(res.TreeItem)
+
+	if err := changeName(res.TreeItem, res.TablesMeta); err != nil {
+		return epTree{}, fmt.Errorf("change name %v", err)
+	}
+
+	return res.epTree, nil
+}
+
+func (e *epTree) load(path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		base.GetConfig().Err.Fatalf("Can`t read tree file from %v err %v", path, err)
+	}
+
+	d := xml.NewDecoder(file)
+
+	if err := d.Decode(&e); err != nil {
+		base.GetConfig().Err.Fatalf("Can`t read tree file from %v err %v", path, err)
+	}
+}
+
+func changeName(t []*nodeEpTree, table map[int]TableInfo) error {
+	var sumError []string
+	for _, node := range t {
+		if node.Name == "" {
+			id, err := strconv.Atoi(node.TableID)
+			if err != nil {
+				if err != nil {
+					sumError = append(sumError, fmt.Sprint(err))
+				}
+			}
+
+			if table, ok := table[id]; ok {
+				node.Name = table.VisName
+			}
+
+		}
+
+		sumError = append(sumError, fmt.Sprint(changeName(node.TreeItem, table)))
+	}
+	return nil
 }

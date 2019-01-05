@@ -1,13 +1,14 @@
-package main
+package web
 
 import (
+	"EcoPasport/base"
+	"EcoPasport/model"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 )
 
@@ -46,7 +47,7 @@ func (wh webHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func run() {
+func Run() {
 
 	apiMux := http.NewServeMux()
 
@@ -60,11 +61,10 @@ func run() {
 
 	logger := log.New(os.Stdout, "[connect] ", log.Flags())
 
-	api := middlewareCORS(middlewareLogging(logger)(http.StripPrefix("/api",apiMux)))
-
+	api := middlewareCORS(middlewareLogging(logger)(http.StripPrefix("/api", apiMux)))
 
 	webServer := &http.Server{
-		Addr:           GetConfig().Port,
+		Addr:           base.GetConfig().Port,
 		Handler:        api,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
@@ -72,7 +72,7 @@ func run() {
 	}
 
 	if err := webServer.ListenAndServe(); err != nil {
-		GetConfig().Err.Fatalf("Ошибка запуска сервера %v", err)
+		base.GetConfig().Err.Fatalf("Ошибка запуска сервера %v", err)
 	}
 }
 
@@ -113,17 +113,10 @@ func middlewareCORS(next http.Handler) http.Handler {
 }
 
 func webGetTree(w http.ResponseWriter, r *http.Request) *webError {
-	res := struct {
-		TablesMeta *map[int]TableInfo
-		*epTree
-	}{}
 
-	res.epTree = GetEpTree()
-
-	res.TablesMeta = GetTablesMeta()
-
-	if err := changeName(res.TreeItem, res.TablesMeta); err != nil {
-		return &webError{err, fmt.Sprintf("change name %v", err)}
+	res, err := model.GetTree()
+	if err != nil {
+		return &webError{err, fmt.Sprintf("ошибка получении дерева таблиц")}
 	}
 
 	encoder := json.NewEncoder(w)
@@ -143,7 +136,7 @@ func webRegionInfo(w http.ResponseWriter, r *http.Request) *webError {
 		return &webError{err, fmt.Sprintf("json encode %v", err)}
 	}
 
-	regionInfo, isEmpty, err := NewDatabase().GetRegionInfo(response.RegionID)
+	regionInfo, isEmpty, err := model.NewDatabase().GetRegionInfo(response.RegionID)
 	if err != nil {
 		return &webError{err, fmt.Sprintf("get region %v", err)}
 	}
@@ -169,7 +162,7 @@ func webRegionInfo(w http.ResponseWriter, r *http.Request) *webError {
 }
 
 func webGetRegions(w http.ResponseWriter, r *http.Request) *webError {
-	regions, err := NewDatabase().GetRegions()
+	regions, err := model.NewDatabase().GetRegions()
 	if err != nil {
 		return &webError{err, fmt.Sprintf("get region %v", err)}
 	}
@@ -194,7 +187,7 @@ func webGetTable(w http.ResponseWriter, r *http.Request) *webError {
 		return &webError{err, fmt.Sprintf("json decode %v", err)}
 	}
 
-	t, err := NewDatabase().GetTable(tblInfo.User, tblInfo.RegionID, tblInfo.TableID)
+	t, err := model.NewDatabase().GetTable(tblInfo.User, tblInfo.RegionID, tblInfo.TableID)
 	if err != nil {
 		return &webError{err, fmt.Sprintf("json encode %v", err)}
 	}
@@ -216,14 +209,14 @@ func webGetMap(w http.ResponseWriter, r *http.Request) *webError {
 		return &webError{err, fmt.Sprintf("json encode %v", err)}
 	}
 
-	center, points, err := NewDatabase().GetMap(req.RegionID)
+	center, points, err := model.NewDatabase().GetMap(req.RegionID)
 	if err != nil {
 		return &webError{err, fmt.Sprintf("get map %v", err)}
 	}
 
 	response := struct {
 		Center *[]float64
-		Points []Point
+		Points []model.Point
 	}{}
 
 	response.Points = points
@@ -236,27 +229,5 @@ func webGetMap(w http.ResponseWriter, r *http.Request) *webError {
 
 	//fmt.Fprint(w, `{"Center":[56.26358,90.49446],"Points":[{"Name":"МКУ \"Центр бухучета\"","Address":"662150, Красноярский край, г. Ачинск, 1-й микрорайон, 27, пом. 1","WasteGenerationForTheYear":5.675,"Latitude":56.26278,"Longitude":90.48457},{"Name":"ОСП Ачинский почтамт УФПС Красноярского края-филиала ФГУП \"Почта России\"","Address":"662150, Красноярский край, г. Ачинск, 1-й микрорайон, 43","WasteGenerationForTheYear":50.139,"Latitude":56.26433,"Longitude":90.49235}]}`)
 
-	return nil
-}
-
-func changeName(t []*nodeEpTree, table *map[int]TableInfo) error {
-	var sumError []string
-	for _, node := range t {
-		if node.Name == "" {
-			id, err := strconv.Atoi(node.TableID)
-			if err != nil {
-				if err != nil {
-					sumError = append(sumError, fmt.Sprint(err))
-				}
-			}
-
-			if table, ok := (*table)[id]; ok {
-				node.Name = table.VisName
-			}
-
-		}
-
-		sumError = append(sumError, fmt.Sprint(changeName(node.TreeItem, table)))
-	}
 	return nil
 }
