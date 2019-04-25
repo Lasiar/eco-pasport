@@ -2,32 +2,36 @@ package model
 
 import (
 	"EcoPasport/base"
+	"context"
+	"crypto/md5"
 	"database/sql"
 	"encoding/xml"
 	"fmt"
-	_ "github.com/denisenkom/go-mssqldb"
 	"log"
 	"os"
 	"strconv"
 	"strings"
+	"time"
+	// driver mssql
+	_ "github.com/denisenkom/go-mssqldb"
 )
 
 const (
 	/*sqlGetTables    string = "SELECT ID_EP_Table, DBName, VisName FROM krasecology.eco.EP_Table"
-	sqlGetRegions   string = "SELECT id, num_region, name, IsTown from krasecology.eco.EP_Region"
-	sqlGetHeaders   string = "SELECT ID_EP_Table, column_name, caption from krasecology.eco.Table_Column"
-	sqlGetEmptyText string = "SELECT Empty_text FROM krasecology.eco.l_EP_Tabe_EP_Region"
-	sqlGetSQL       string = `
-	USE krasecology;
+		sqlGetRegions   string = "SELECT id, num_region, name, IsTown from krasecology.eco.EP_Region"
+		sqlGetHeaders   string = "SELECT ID_EP_Table, column_name, caption from krasecology.eco.Table_Column"
+		sqlGetEmptyText string = "SELECT Empty_text FROM krasecology.eco.l_EP_Tabe_EP_Region"
+		sqlGetSQL       string = `
+		USE krasecology;
 
-	declare @SQL varchar(max) EXECUTE eco.sp_get_table 'babay@krasecology.ru',
-	?,
-	?,
-	@SQL output
-	EXECUTE (@sql)
-	`
+		declare @SQL varchar(max) EXECUTE eco.sp_get_table 'babay@krasecology.ru',
+		?,
+		?,
+		@SQL output
+		EXECUTE (@sql)
+		`
 
-) */
+	) */
 	sqlTest string = `sELECT 
 org.org_name, 
 org.Adress,  
@@ -99,7 +103,6 @@ where p1.ID_Area = ?`
 	Fee_total,
 	Over_limit,
 	From_stationary,
-	From_mobile,
 	Discharges,
 	Waste_disposal,
 	PNG,
@@ -109,8 +112,7 @@ FROM
 where ID_Area = ?`
 
 	sqlGetCenterArea string = `SELECT lat, lng from krasecology.eco_2018.Table_0_0_Regions where ID = ?`
-	sqlGetPoints     string = `SELECT org_name, Adress, Waste_generation_for_the_year,Allotted_wastewater_total , lat, lng from krasecology.eco_2018.v_PopUp_Info where ID_Area=?`
-	sqlGetInfoRegion string = `SELECT Admin_center, Creation_date, Population, Area, Gross_emissions, Withdrawn_water, Discharge_volume,Formed_waste  FROM eco_2018.Table_0_4_Regions_info WHERE Region_ID=?;`
+	sqlGetInfoRegion string = `SELECT Admin_center , Creation_date, Population, Area, Gross_emissions, Withdrawn_water, Discharge_volume,Formed_waste  FROM eco_2018.Table_0_4_Regions_info WHERE Region_ID=?;`
 
 	// TODO: переделать на уровне базы этот шлак
 	sqlGetTableSpecial string = `select
@@ -173,13 +175,14 @@ where Table_ID = ?
 	sqlGetSQL string = `
 USE krasecology;
 
-declare @SQL varchar(max) EXECUTE eco_2018.sp_get_table ?,?,
-?,
+declare @SQL varchar(max) EXECUTE eco_2018.sp_get_table ?,@p1,
+@p2,
 @SQL output
 EXECUTE (@sql)
 `
 )
 
+// Database provide access to database
 type Database struct {
 	DB  *sql.DB
 	err error
@@ -189,6 +192,7 @@ func (d *Database) Error() string {
 	return d.err.Error()
 }
 
+// NewDatabase get new connection
 func NewDatabase() *Database {
 	db := new(Database)
 	if err := db.connectMSSQL(); err != nil {
@@ -213,6 +217,7 @@ func (d *Database) close() {
 	}
 }
 
+// Region save region
 type Region struct {
 	ID        int
 	NumRegion int
@@ -220,7 +225,7 @@ type Region struct {
 	IsTown    bool
 }
 
-//Fetch получение данных с базы
+// GetRegions get regions
 func (d *Database) GetRegions() ([]Region, error) {
 	if d.err != nil {
 		return nil, d.err
@@ -245,13 +250,13 @@ func (d *Database) GetRegions() ([]Region, error) {
 	return *regions, nil
 }
 
-//RequestTableInfo информация от пользвателя для выдачи таблицы
+// TableInfo информация от пользвателя для выдачи таблицы
 type TableInfo struct {
 	DBTable string
 	VisName string
 }
 
-//Fetch получение данных с базы
+// GetTablesInfo получение данных с базы
 func (d *Database) GetTablesInfo() (map[int]TableInfo, error) {
 	if d.err != nil {
 		return nil, d.err
@@ -282,16 +287,16 @@ func (d *Database) GetTablesInfo() (map[int]TableInfo, error) {
 	return t, nil
 }
 
-//Table отдаваемая пользователю таблица
+// Table отдаваемая пользователю таблица
 type Table struct {
 	Header            []string `json:",omitempty"`
-	HeaderAsHtml      string   `json:",omitempty"`
+	HeaderAsHTML      string   `json:",omitempty"`
 	Value             [][]string
 	InfoForEmptyValue string `json:",omitempty"`
 }
 
-//Fetch получение данных с базы
-func (d *Database) GetTable(user string, regionID int, tableID int) (*Table, error) {
+// GetTable получение данных с базы
+func (d *Database) GetTable(user string, regionID, tableID int) (*Table, error) {
 	if d.err != nil {
 		return nil, d.err
 	}
@@ -303,6 +308,7 @@ func (d *Database) GetTable(user string, regionID int, tableID int) (*Table, err
 		err  error
 	)
 
+	ctx := context.Background()
 	switch tableID {
 	case 1014:
 		rows, err = d.DB.Query(sqlGetTableSpecial, regionID)
@@ -311,7 +317,7 @@ func (d *Database) GetTable(user string, regionID int, tableID int) (*Table, err
 	case 1024:
 		rows, err = d.DB.Query(sqSpacial13, regionID)
 	default:
-		rows, err = d.DB.Query(sqlGetSQL, user, tableID, regionID)
+		rows, err = d.DB.QueryContext(ctx, sqlGetSQL, user, tableID, regionID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("[DB] query %v", err)
@@ -330,7 +336,7 @@ func (d *Database) GetTable(user string, regionID int, tableID int) (*Table, err
 	t := new(Table)
 
 	if headers.HTML != "" {
-		t.HeaderAsHtml = headers.HTML
+		t.HeaderAsHTML = headers.HTML
 	} else {
 		for _, column := range columns {
 			t.Header = append(t.Header, headers.Columns[column])
@@ -373,13 +379,13 @@ func (d *Database) GetTable(user string, regionID int, tableID int) (*Table, err
 	return t, nil
 }
 
-//Headers кеширование всех хейдоеров
+// Headers кеширование всех хейдоеров
 type Headers struct {
 	Columns map[string]string
 	HTML    string
 }
 
-//Fetch получение данных с базы
+// GetHeaders получение данных с базы
 func (d *Database) GetHeaders(idTable int) (*Headers, error) {
 	if d.err != nil {
 		return nil, d.err
@@ -418,8 +424,8 @@ func (d *Database) GetHeaders(idTable int) (*Headers, error) {
 	return headers, nil
 }
 
-//Fetch получение данных с базы
-func (d *Database) GetTextForEmptyTable(IDRegion int, IDTable int) (string, error) {
+// GetTextForEmptyTable получение данных с базы
+func (d *Database) GetTextForEmptyTable(idRegion, idTable int) (string, error) {
 	if d.err != nil {
 		return "", d.err
 	}
@@ -427,7 +433,7 @@ func (d *Database) GetTextForEmptyTable(IDRegion int, IDTable int) (string, erro
 
 	var text string
 
-	err := d.DB.QueryRow(sqlGetEmptyText, IDTable, IDRegion).Scan(&text)
+	err := d.DB.QueryRow(sqlGetEmptyText, idTable, idRegion).Scan(&text)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
@@ -439,6 +445,7 @@ func (d *Database) GetTextForEmptyTable(IDRegion int, IDTable int) (string, erro
 	return text, nil
 }
 
+// RegionInfo info by region
 type RegionInfo struct {
 	GeneralInformation struct {
 		AdminCenter  string
@@ -454,6 +461,7 @@ type RegionInfo struct {
 	}
 }
 
+// GetRegionInfo select info databases
 func (d *Database) GetRegionInfo(id int) (*RegionInfo, bool, error) {
 	if d.err != nil {
 		return nil, false, d.err
@@ -488,6 +496,7 @@ func (d *Database) GetRegionInfo(id int) (*RegionInfo, bool, error) {
 	return regionInfo, true, nil
 }
 
+// Point map point
 type Point struct {
 	Name                      string
 	Address                   string
@@ -498,6 +507,7 @@ type Point struct {
 	Longitude                 float64
 }
 
+// GetMap получение данных с базы
 func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 	if d.err != nil {
 		return nil, nil, d.err
@@ -530,7 +540,7 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 
 	points := new([]Point)
 
-	var tmpName string
+	var currentName string
 	var tmpWater []string
 
 	first := true
@@ -549,14 +559,8 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 		}
 
 		if first {
-			tmpName = point.Name
 
 			tmpWater = append(tmpWater, fmt.Sprintf("%v - %v", tmpWaterObject.String, tmpAllottedWastewaterTotal.String))
-
-			first = false
-		}
-
-		if point.Name != tmpName {
 
 			if tmpPointWasteGenerator.Valid {
 				point.WasteGenerationForTheYear = tmpPointWasteGenerator.String
@@ -572,7 +576,26 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 
 			tmpWater = nil
 
-			tmpName = point.Name
+			first = false
+		}
+
+		if point.Name != currentName {
+
+			if tmpPointWasteGenerator.Valid {
+				point.WasteGenerationForTheYear = tmpPointWasteGenerator.String
+			}
+
+			if tmpIntoAmto.Valid {
+				point.IntoTheAtmo = tmpIntoAmto.String
+			}
+
+			point.AllottedWastewaterTotal = strings.Join(tmpWater, "; ")
+
+			*points = append(*points, point)
+
+			tmpWater = nil
+
+			currentName = point.Name
 
 		}
 
@@ -589,37 +612,39 @@ type nodeEpTree struct {
 	TreeItem  []*nodeEpTree `xml:"TreeItem"  json:",omitempty"`
 }
 
-type epTree struct {
+// EpTree eptree
+type EpTree struct {
 	TreeItem []*nodeEpTree `xml:"TreeItem"`
 }
 
-func GetTree() (epTree, error) {
+// GetTree get table tree
+func GetTree() (EpTree, error) {
 	res := struct {
 		TablesMeta map[int]TableInfo
-		epTree
+		EpTree
 	}{}
 
 	res.TablesMeta = make(map[int]TableInfo)
 
-	res.epTree.load("./Tree.xml")
+	res.EpTree.load("./Tree.xml")
 
 	var err error
 
 	res.TablesMeta, err = NewDatabase().GetTablesInfo()
 	if err != nil {
-		return epTree{}, fmt.Errorf("[DB] get table info: %v", err)
+		return EpTree{}, fmt.Errorf("[DB] get table info: %v", err)
 	}
 
 	fmt.Println(res.TreeItem)
 
 	if err := changeName(res.TreeItem, res.TablesMeta); err != nil {
-		return epTree{}, fmt.Errorf("change name %v", err)
+		return EpTree{}, fmt.Errorf("change name %v", err)
 	}
 
-	return res.epTree, nil
+	return res.EpTree, nil
 }
 
-func (e *epTree) load(path string) {
+func (e *EpTree) load(path string) {
 	file, err := os.Open(path)
 	if err != nil {
 		base.GetConfig().Err.Fatalf("Can`t read tree file from %v err %v", path, err)
@@ -632,24 +657,77 @@ func (e *epTree) load(path string) {
 	}
 }
 
+// GetPrivilege check user privilege to the table
+func (d *Database) GetPrivilege(emailUser, keyUser string, idTable int) (bool, error) {
+	if d.err != nil {
+		return false, d.err
+	}
+
+	var isAccess bool
+
+	var idUser int
+	var dateRegisteredUser time.Time
+
+	queryDefault := fmt.Sprintf(`select T_%v
+			from eco_2018.Table_0_6_Access_Right
+			where ID_Role = 1009`, idTable)
+
+	if emailUser == "" {
+		if err := d.DB.QueryRow(queryDefault).Scan(&isAccess); err != nil {
+			return false, err
+		}
+		return isAccess, nil
+	}
+
+	if err := d.DB.QueryRow("select ID_USER_User, DateRegistered from USER_User where EMail = ?", emailUser).Scan(&idUser, &dateRegisteredUser); err != nil {
+		return false, err
+	}
+
+	verificationSum := fmt.Sprint(dateRegisteredUser.Unix() + int64(idUser) + int64(time.Now().Month()))
+
+	if fmt.Sprintf("%X", md5.Sum([]byte(verificationSum))) != keyUser {
+		return false, nil
+	}
+
+	query := fmt.Sprintf(`SELECT top 1  T_%v
+	FROM eco_2018.Table_0_8_Users eu
+	inner join dbo.USER_User u on eu.User_ID = u.ID_USER_User
+	inner join eco_2018.Table_0_6_Access_Right ac on ac.ID_Role = eu.Role_ID
+	where u.EMail = '%v'	`, idTable, emailUser)
+
+	fmt.Println(query)
+
+	fmt.Println(emailUser)
+
+	if err := d.DB.QueryRow(query).Scan(&isAccess); err != nil {
+		if err == sql.ErrNoRows {
+			if err := d.DB.QueryRow(queryDefault).Scan(&isAccess); err != nil {
+				return false, err
+			}
+			return isAccess, nil
+		}
+
+		return false, err
+	}
+
+	fmt.Println(isAccess)
+
+	return isAccess, nil
+
+}
+
 func changeName(t []*nodeEpTree, table map[int]TableInfo) error {
-	var sumError []string
 	for _, node := range t {
 		if node.Name == "" {
 			id, err := strconv.Atoi(node.TableID)
 			if err != nil {
-				if err != nil {
-					sumError = append(sumError, fmt.Sprint(err))
-				}
+				return err
 			}
-
 			if table, ok := table[id]; ok {
 				node.Name = table.VisName
 			}
 
 		}
-
-		sumError = append(sumError, fmt.Sprint(changeName(node.TreeItem, table)))
 	}
 	return nil
 }

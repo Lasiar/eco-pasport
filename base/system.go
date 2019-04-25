@@ -7,7 +7,8 @@ import (
 	"sync"
 )
 
-type config struct {
+// Config config running applications
+type Config struct {
 	ConnStr     string `json:"connect_string"`
 	Port        string `json:"port"`
 	PathTreeXML string `json:"xml_file"`
@@ -17,37 +18,29 @@ type config struct {
 }
 
 var (
-	_config         *config
-	_onceConfig     sync.Once
-	//_treeXML        *epTree
-	//_onceTreeXML    sync.Once
-	//_onceHeaders    sync.Once
-	//_headers        *Headers
-	//_onceTablesMeta sync.Once
-	//_tablesMata     *map[int]TableInfo
-	//_onceEmptyText  sync.Once
-	//_emptyText      *map[int]map[int]string
+	_config     *Config
+	_onceConfig sync.Once
 )
 
-//GetConfig получение объекта конфига
-func GetConfig() *config {
+// GetConfig получение объекта конфига
+func GetConfig() *Config {
 	_onceConfig.Do(func() {
-		_config = new(config)
+		_config = new(Config)
 		_config.load()
 	})
 	return _config
 }
 
-func (c *config) load() {
+func (c *Config) load() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	confFile, err := os.Open("config.json")
+	confFile, err := os.Open("сonfig.json")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	dc := json.NewDecoder(confFile)
 	if err := dc.Decode(&c); err != nil {
-		log.Fatal("Read config file: ", err)
+		log.Fatal("Read Config file: ", err)
 	}
 
 	if c.ConnStr == "" {
@@ -58,62 +51,3 @@ func (c *config) load() {
 	c.Warn = log.New(os.Stderr, "[WARNING] ", log.Ldate|log.Ltime)
 	c.Info = log.New(os.Stderr, "[INFO] ", log.Ldate|log.Ltime)
 }
-
-
-
-
-//GetEpTree получение дерева таблиц
-//func GetEpTree() *epTree {
-//	_onceTreeXML.Do(func() {
-//		_treeXML = new(epTree)
-//		_treeXML.loadTree(GetConfig().PathTreeXML)
-//	})
-//	return _treeXML
-//}
-//
-////GetHeaders получение всех заголовок всех таблиц singletone
-//func GetHeaders() *Headers {
-//	_onceHeaders.Do(func() {
-//		_headers = new(Headers)
-//
-//		h, err := NewDatabase().GetHeaders()
-//		if err != nil {
-//			log.Fatal(err)
-//		}
-//
-//		*_headers = *h
-//
-//	})
-//
-//	return _headers
-//}
-//
-//func GetTablesMeta() *map[int]TableInfo {
-//	_onceTablesMeta.Do(func() {
-//
-//		_tablesMata = new(map[int]TableInfo)
-//
-//		tm, err := NewDatabase().GetTablesInfo()
-//		if err != nil {
-//			return
-//		}
-//
-//		*_tablesMata = tm
-//	})
-//	return _tablesMata
-//}
-//
-////
-//func GetEmptyText() *map[int]map[int]string {
-//	_onceEmptyText.Do(func() {
-//		_emptyText = new(map[int]map[int]string)
-//
-//		et, err := NewDatabase().GetTextForEmptyTable()
-//		if err != nil {
-//			log.Fatal(err)
-//		}
-//
-//		*_emptyText = et
-//	})
-//	return _emptyText
-//}
