@@ -33,7 +33,7 @@ func GetConfig() *Config {
 
 func (c *Config) load() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	confFile, err := os.Open("сonfig.json")
+	confFile, err := os.Open("config.json")
 	if err != nil {
 		log.Fatal(err)
 	}

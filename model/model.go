@@ -237,17 +237,20 @@ func (d *Database) GetRegions() ([]Region, error) {
 		return nil, fmt.Errorf("[DB] query %v", err)
 	}
 
-	regions := new([]Region)
+	regions := []Region{}
 
 	for rows.Next() {
-		r := new(Region)
+		r := Region{}
 
 		if err := rows.Scan(&r.ID, &r.NumRegion, &r.Name, &r.IsTown); err != nil {
 			return nil, fmt.Errorf("[DB] scan %v", err)
 		}
-		*regions = append(*regions, *r)
+		regions = append(regions, r)
 	}
-	return *regions, nil
+
+	log.Println(regions)
+
+	return regions, nil
 }
 
 // TableInfo информация от пользвателя для выдачи таблицы

@@ -2,7 +2,7 @@ package web
 
 import (
 	"EcoPasport/base"
-	context "EcoPasport/web/context"
+	"EcoPasport/web/context"
 	"database/sql"
 	"encoding/json"
 	"log"
@@ -15,16 +15,15 @@ import (
 func Run() {
 
 	apiMux := http.NewServeMux()
-
-	apiMux.HandleFunc("/get-tree", webGetTree)
-	apiMux.HandleFunc("/get-regions", webGetRegions)
-	apiMux.HandleFunc("/get-table", webGetTable)
-	apiMux.HandleFunc("/get-region-info", webRegionInfo)
-	apiMux.HandleFunc("/get-region-map", webGetMap)
+	apiMux.HandleFunc("/api/get-tree", webGetTree)
+	apiMux.HandleFunc("/api/get-regions", webGetRegions)
+	apiMux.HandleFunc("/api/get-table", webGetTable)
+	apiMux.HandleFunc("/api/get-region-info", webRegionInfo)
+	apiMux.HandleFunc("/api/get-region-map", webGetMap)
 
 	logger := log.New(os.Stdout, "[connect] ", log.Flags())
 
-	api := middlewareCORS(JSONWriteHandler(middlewareLogging(logger)(http.StripPrefix("/api", apiMux))))
+	api := JSONWriteHandler(middlewareLogging(logger)(apiMux))
 
 	webServer := &http.Server{
 		Addr:           base.GetConfig().Port,
@@ -51,7 +50,8 @@ func middlewareLogging(logger *log.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-func middlewareCORS(next http.Handler) http.Handler {
+// JSONWriteHandler хандлер для ответа в виде json
+func JSONWriteHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Access-Control-Allow-Origin", "*")
 		w.Header().Add("Access-Control-Allow-Headers", "*")
@@ -63,13 +63,6 @@ func middlewareCORS(next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, r)
-	})
-}
-
-// JSONWriteHandler хандлер для ответа в виде json
-func JSONWriteHandler(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if next != nil {
 			next.ServeHTTP(w, r)
 		}

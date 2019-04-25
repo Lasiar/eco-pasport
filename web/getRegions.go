@@ -2,7 +2,7 @@ package web
 
 import (
 	"EcoPasport/model"
-	context "EcoPasport/web/context"
+	"EcoPasport/web/context"
 	"fmt"
 	"net/http"
 )
@@ -13,6 +13,5 @@ func webGetRegions(w http.ResponseWriter, r *http.Request) {
 		context.SetError(r, fmt.Errorf("get regions: %v", err))
 		return
 	}
-
 	context.SetResponse(r, regions)
 }

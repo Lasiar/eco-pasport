@@ -2,7 +2,7 @@ package web
 
 import (
 	"EcoPasport/model"
-	context "EcoPasport/web/context"
+	"EcoPasport/web/context"
 	"encoding/json"
 	"fmt"
 	"net/http"
