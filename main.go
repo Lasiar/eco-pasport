@@ -1,5 +1,10 @@
 package main
 
+import "EcoPasport/web"
+
 func main() {
-	run()
+	web.Run()
 }
+
+
+

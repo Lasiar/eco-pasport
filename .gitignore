@@ -15,5 +15,7 @@
 .idea/
 
 #other
+data/
 Tree.xml
+config.production.json
 config.json
