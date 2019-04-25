@@ -4,7 +4,6 @@ import (
 	"EcoPasport/model"
 	"EcoPasport/web/context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 )
@@ -16,7 +15,7 @@ func webGetTable(w http.ResponseWriter, r *http.Request) {
 		RegionID int    `json:"region_id"`
 		TableID  int    `json:"table_id"`
 	}{}
-	if err := json.NewDecoder(r.Body).Decode(tblInfo); err != nil {
+	if err := parseJSON(r, tblInfo); err != nil {
 		context.SetResponse(r, fmt.Errorf("json decode %v", err))
 		return
 	}
@@ -30,11 +29,11 @@ func webGetTable(w http.ResponseWriter, r *http.Request) {
 		context.SetError(r, fmt.Errorf("user %v", err))
 		return
 	}
-	if ac, err := model.NewDatabase().GetPrivilege(string(userEmail), string(userToken), tblInfo.TableID); err != nil || !ac {
+	if ac, err := model.GetDatabase().GetPrivilege(string(userEmail), string(userToken), tblInfo.TableID); err != nil || !ac {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-	t, err := model.NewDatabase().GetTable(tblInfo.User, tblInfo.RegionID, tblInfo.TableID)
+	t, err := model.GetDatabase().GetTable(tblInfo.User, tblInfo.RegionID, tblInfo.TableID)
 	if err != nil {
 		context.SetResponse(r, fmt.Errorf("json encode %v", err))
 		return

@@ -6,11 +6,13 @@ import (
 	"crypto/md5"
 	"database/sql"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	// driver mssql
 	_ "github.com/denisenkom/go-mssqldb"
@@ -182,9 +184,14 @@ EXECUTE (@sql)
 `
 )
 
+var (
+	_once sync.Once
+	_db   *Database
+)
+
 // Database provide access to database
 type Database struct {
-	DB  *sql.DB
+	db  *sql.DB
 	err error
 }
 
@@ -192,29 +199,30 @@ func (d *Database) Error() string {
 	return d.err.Error()
 }
 
-// NewDatabase get new connection
-func NewDatabase() *Database {
-	db := new(Database)
-	if err := db.connectMSSQL(); err != nil {
-		db.err = fmt.Errorf("[DB CONNECT] %v", err)
-		return db
+func (d *Database) newDatabase() {
+	if err := d.connectMSSQL(); err != nil {
+		d.err = fmt.Errorf("[db CONNECT] %v", err)
 	}
-	return db
+}
+
+// GetDatabase get connection
+func GetDatabase() *Database {
+	_once.Do(func() {
+		_db = new(Database)
+		_db.newDatabase()
+		if _db.err != nil {
+			log.Fatal(_db.err)
+		}
+	})
+	return _db
 }
 
 func (d *Database) connectMSSQL() (err error) {
-	d.DB, err = sql.Open("mssql", base.GetConfig().ConnStr)
+	d.db, err = sql.Open("mssql", base.GetConfig().ConnStr)
 	if err != nil {
 		return err
 	}
-
-	return d.DB.Ping()
-}
-
-func (d *Database) close() {
-	if err := d.DB.Close(); err != nil {
-		log.Printf("[DB CLOSE] %v", err)
-	}
+	return d.db.Ping()
 }
 
 // Region save region
@@ -230,11 +238,10 @@ func (d *Database) GetRegions() ([]Region, error) {
 	if d.err != nil {
 		return nil, d.err
 	}
-	defer d.close()
 
-	rows, err := d.DB.Query(sqlGetRegions)
+	rows, err := d.db.Query(sqlGetRegions)
 	if err != nil {
-		return nil, fmt.Errorf("[DB] query %v", err)
+		return nil, fmt.Errorf("[db] query %v", err)
 	}
 
 	regions := []Region{}
@@ -243,13 +250,10 @@ func (d *Database) GetRegions() ([]Region, error) {
 		r := Region{}
 
 		if err := rows.Scan(&r.ID, &r.NumRegion, &r.Name, &r.IsTown); err != nil {
-			return nil, fmt.Errorf("[DB] scan %v", err)
+			return nil, fmt.Errorf("[db] scan %v", err)
 		}
 		regions = append(regions, r)
 	}
-
-	log.Println(regions)
-
 	return regions, nil
 }
 
@@ -264,11 +268,10 @@ func (d *Database) GetTablesInfo() (map[int]TableInfo, error) {
 	if d.err != nil {
 		return nil, d.err
 	}
-	defer d.close()
 
-	rows, err := d.DB.Query(sqlGetTables)
+	rows, err := d.db.Query(sqlGetTables)
 	if err != nil {
-		return nil, fmt.Errorf("[DB] query %v", err)
+		return nil, fmt.Errorf("[db] query %v", err)
 	}
 
 	t := make(map[int]TableInfo)
@@ -282,7 +285,7 @@ func (d *Database) GetTablesInfo() (map[int]TableInfo, error) {
 		}{}
 
 		if err := rows.Scan(&row.id, &row.dbName, &row.visName); err != nil {
-			return nil, fmt.Errorf("[DB] scan %v", err)
+			return nil, fmt.Errorf("[db] scan %v", err)
 		}
 		t[row.id] = TableInfo{row.dbName, row.visName}
 	}
@@ -304,8 +307,6 @@ func (d *Database) GetTable(user string, regionID, tableID int) (*Table, error) 
 		return nil, d.err
 	}
 
-	defer d.close()
-
 	var (
 		rows *sql.Rows
 		err  error
@@ -314,26 +315,26 @@ func (d *Database) GetTable(user string, regionID, tableID int) (*Table, error) 
 	ctx := context.Background()
 	switch tableID {
 	case 1014:
-		rows, err = d.DB.Query(sqlGetTableSpecial, regionID)
+		rows, err = d.db.Query(sqlGetTableSpecial, regionID)
 	case 1027:
-		rows, err = d.DB.Query(sqlSpectial18, regionID)
+		rows, err = d.db.Query(sqlSpectial18, regionID)
 	case 1024:
-		rows, err = d.DB.Query(sqSpacial13, regionID)
+		rows, err = d.db.Query(sqSpacial13, regionID)
 	default:
-		rows, err = d.DB.QueryContext(ctx, sqlGetSQL, user, tableID, regionID)
+		rows, err = d.db.QueryContext(ctx, sqlGetSQL, user, tableID, regionID)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("[DB] query %v", err)
+		return nil, fmt.Errorf("[db] query %v", err)
 	}
 
 	columns, err := rows.Columns()
 	if err != nil {
-		return nil, fmt.Errorf("[DB] column %v", err)
+		return nil, fmt.Errorf("[db] column %v", err)
 	}
 
-	headers, err := NewDatabase().GetHeaders(tableID)
+	headers, err := GetDatabase().GetHeaders(tableID)
 	if err != nil {
-		return nil, fmt.Errorf("[DB] получение заголовгов: %v", err)
+		return nil, fmt.Errorf("[db] получение заголовгов: %v", err)
 	}
 
 	t := new(Table)
@@ -359,7 +360,7 @@ func (d *Database) GetTable(user string, regionID, tableID int) (*Table, error) 
 
 		err = rows.Scan(dest...)
 		if err != nil {
-			return nil, fmt.Errorf("[DB] rows scan %v", err)
+			return nil, fmt.Errorf("[db] rows scan %v", err)
 		}
 
 		for j, raw := range rawResult {
@@ -393,9 +394,8 @@ func (d *Database) GetHeaders(idTable int) (*Headers, error) {
 	if d.err != nil {
 		return nil, d.err
 	}
-	defer d.close()
 
-	rows, err := d.DB.Query(sqlGetHeaders, idTable, idTable)
+	rows, err := d.db.Query(sqlGetHeaders, idTable, idTable)
 	if err != nil {
 		return nil, err
 	}
@@ -432,17 +432,16 @@ func (d *Database) GetTextForEmptyTable(idRegion, idTable int) (string, error) {
 	if d.err != nil {
 		return "", d.err
 	}
-	defer d.close()
 
 	var text string
 
-	err := d.DB.QueryRow(sqlGetEmptyText, idTable, idRegion).Scan(&text)
+	err := d.db.QueryRow(sqlGetEmptyText, idTable, idRegion).Scan(&text)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
 
 	if err != nil {
-		return "", fmt.Errorf("[DB] quer row:  %v", err)
+		return "", fmt.Errorf("[db] quer row:  %v", err)
 	}
 
 	return text, nil
@@ -469,14 +468,12 @@ func (d *Database) GetRegionInfo(id int) (*RegionInfo, bool, error) {
 	if d.err != nil {
 		return nil, false, d.err
 	}
-	defer d.close()
-
 	regionInfo := new(RegionInfo)
 
 	var (
 		tmpArea sql.NullString
 	)
-	err := d.DB.QueryRow(sqlGetInfoRegion, id).Scan(&regionInfo.GeneralInformation.AdminCenter,
+	err := d.db.QueryRow(sqlGetInfoRegion, id).Scan(&regionInfo.GeneralInformation.AdminCenter,
 		&regionInfo.GeneralInformation.CreationDate,
 		&regionInfo.GeneralInformation.Population,
 		&tmpArea,
@@ -516,8 +513,6 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 		return nil, nil, d.err
 	}
 
-	defer d.close()
-
 	centerArea := new([]float64)
 
 	center := struct {
@@ -525,9 +520,9 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 		lng sql.NullFloat64
 	}{}
 
-	err := d.DB.QueryRow(sqlGetCenterArea, regionID).Scan(&center.lat, &center.lng)
+	err := d.db.QueryRow(sqlGetCenterArea, regionID).Scan(&center.lat, &center.lng)
 	if err != nil {
-		return nil, nil, fmt.Errorf("[DB] get center %v", err)
+		return nil, nil, fmt.Errorf("[db] get center %v", err)
 	}
 
 	if !center.lat.Valid || !center.lng.Valid {
@@ -536,7 +531,7 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 
 	*centerArea = append(*centerArea, []float64{center.lat.Float64, center.lng.Float64}...)
 
-	rows, err := d.DB.Query(sqlTest, regionID)
+	rows, err := d.db.Query(sqlTest, regionID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -633,9 +628,9 @@ func GetTree() (EpTree, error) {
 
 	var err error
 
-	res.TablesMeta, err = NewDatabase().GetTablesInfo()
+	res.TablesMeta, err = GetDatabase().GetTablesInfo()
 	if err != nil {
-		return EpTree{}, fmt.Errorf("[DB] get table info: %v", err)
+		return EpTree{}, fmt.Errorf("[db] get table info: %v", err)
 	}
 
 	fmt.Println(res.TreeItem)
@@ -676,13 +671,13 @@ func (d *Database) GetPrivilege(emailUser, keyUser string, idTable int) (bool, e
 			where ID_Role = 1009`, idTable)
 
 	if emailUser == "" {
-		if err := d.DB.QueryRow(queryDefault).Scan(&isAccess); err != nil {
+		if err := d.db.QueryRow(queryDefault).Scan(&isAccess); err != nil {
 			return false, err
 		}
 		return isAccess, nil
 	}
 
-	if err := d.DB.QueryRow("select ID_USER_User, DateRegistered from USER_User where EMail = ?", emailUser).Scan(&idUser, &dateRegisteredUser); err != nil {
+	if err := d.db.QueryRow("select ID_USER_User, DateRegistered from USER_User where EMail = ?", emailUser).Scan(&idUser, &dateRegisteredUser); err != nil {
 		return false, err
 	}
 
@@ -702,9 +697,9 @@ func (d *Database) GetPrivilege(emailUser, keyUser string, idTable int) (bool, e
 
 	fmt.Println(emailUser)
 
-	if err := d.DB.QueryRow(query).Scan(&isAccess); err != nil {
+	if err := d.db.QueryRow(query).Scan(&isAccess); err != nil {
 		if err == sql.ErrNoRows {
-			if err := d.DB.QueryRow(queryDefault).Scan(&isAccess); err != nil {
+			if err := d.db.QueryRow(queryDefault).Scan(&isAccess); err != nil {
 				return false, err
 			}
 			return isAccess, nil
@@ -720,17 +715,25 @@ func (d *Database) GetPrivilege(emailUser, keyUser string, idTable int) (bool, e
 }
 
 func changeName(t []*nodeEpTree, table map[int]TableInfo) error {
+	var sumError []string
+	var hasError bool
 	for _, node := range t {
 		if node.Name == "" {
 			id, err := strconv.Atoi(node.TableID)
 			if err != nil {
-				return err
+				hasError = true
+				sumError = append(sumError, fmt.Sprint(err))
 			}
+
 			if table, ok := table[id]; ok {
 				node.Name = table.VisName
 			}
 
 		}
+		sumError = append(sumError, fmt.Sprint(changeName(node.TreeItem, table)))
+	}
+	if hasError {
+		return errors.New(strings.Join(sumError, "."))
 	}
 	return nil
 }

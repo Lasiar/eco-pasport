@@ -68,16 +68,14 @@ func JSONWriteHandler(next http.Handler) http.Handler {
 		}
 
 		if err := r.Context().Err(); err != nil {
-
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-
 			switch err {
 			case sql.ErrNoRows:
 				http.Error(w, "Нет данных по данному запросы", 404)
 			default:
 				w.WriteHeader(http.StatusInternalServerError)
 			}
-
+			log.Println(err)
 			return
 		}
 
@@ -91,4 +89,8 @@ func JSONWriteHandler(next http.Handler) http.Handler {
 			log.Println(err)
 		}
 	})
+}
+
+func parseJSON(r *http.Request, data interface{}) error {
+	return json.NewDecoder(r.Body).Decode(&data)
 }

@@ -3,7 +3,6 @@ package web
 import (
 	"EcoPasport/model"
 	"EcoPasport/web/context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 )
@@ -13,12 +12,12 @@ func webRegionInfo(w http.ResponseWriter, r *http.Request) {
 		RegionID int `json:"region_id"`
 	}{}
 
-	if err := json.NewDecoder(r.Body).Decode(&response); err != nil {
+	if err := parseJSON(r, &response); err != nil {
 		context.SetError(r, fmt.Errorf("json encode: %v", err))
 		return
 	}
 
-	regionInfo, isEmpty, err := model.NewDatabase().GetRegionInfo(response.RegionID)
+	regionInfo, isEmpty, err := model.GetDatabase().GetRegionInfo(response.RegionID)
 	if err != nil {
 		context.SetError(r, fmt.Errorf("get region: %v", err))
 		return
