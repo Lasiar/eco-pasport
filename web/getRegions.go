@@ -8,7 +8,7 @@ import (
 )
 
 func webGetRegions(w http.ResponseWriter, r *http.Request) {
-	regions, err := model.GetDatabase().GetRegions()
+	regions, err := model.GetDatabase().SelectRegions()
 	if err != nil {
 		context.SetError(r, fmt.Errorf("get regions: %v", err))
 		return
