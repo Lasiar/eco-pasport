@@ -1,7 +1,6 @@
 package model
 
 import (
-	"context"
 	"crypto/md5"
 	"database/sql"
 	"fmt"
@@ -19,7 +18,6 @@ func (d *Database) GetTable(user string, regionID, tableID int) (*Table, error) 
 		err  error
 	)
 
-	ctx := context.Background()
 	switch tableID {
 	case 1014:
 		rows, err = d.db.Query(sqlGetTableSpecial, regionID)
@@ -28,7 +26,11 @@ func (d *Database) GetTable(user string, regionID, tableID int) (*Table, error) 
 	case 1024:
 		rows, err = d.db.Query(sqSpacial13, regionID)
 	default:
-		rows, err = d.db.QueryContext(ctx, sqlGetSQL, user, tableID, regionID)
+		rows, err = d.db.Query("declare @SQL varchar(max) EXEC  krasecology.eco_2018.sp_get_table @User, @Table_id, @Region_id, @SQL output; EXECUTE (@sql)",
+			sql.Named("User", user),
+			sql.Named("Table_id", tableID),
+			sql.Named("Region_id", regionID),
+		)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("[db] query %v", err)
@@ -121,10 +123,8 @@ func (d *Database) GetPrivilege(emailUser, keyUser string, idTable int) (bool, e
 	FROM eco_2018.Table_0_8_Users eu
 	inner join dbo.USER_User u on eu.User_ID = u.ID_USER_User
 	inner join eco_2018.Table_0_6_Access_Right ac on ac.ID_Role = eu.Role_ID
-	where u.EMail = '%v'	`, idTable, emailUser)
-	fmt.Println(query)
-	fmt.Println(emailUser)
-	if err := d.db.QueryRow(query).Scan(&isAccess); err != nil {
+	where u.EMail = @email`, idTable)
+	if err := d.db.QueryRow(query, sql.Named("email", emailUser)).Scan(&isAccess); err != nil {
 		if err == sql.ErrNoRows {
 			if err := d.db.QueryRow(queryDefault).Scan(&isAccess); err != nil {
 				return false, err
@@ -133,7 +133,6 @@ func (d *Database) GetPrivilege(emailUser, keyUser string, idTable int) (bool, e
 		}
 		return false, err
 	}
-	fmt.Println(isAccess)
 	return isAccess, nil
 }
 
@@ -151,18 +150,73 @@ func (d *Database) GetTablesInfo() (map[int]TableInfo, error) {
 	t := make(map[int]TableInfo)
 
 	for rows.Next() {
-
 		row := struct {
 			id      int
 			dbName  string
 			visName string
 		}{}
-
 		if err := rows.Scan(&row.id, &row.dbName, &row.visName); err != nil {
 			return nil, fmt.Errorf("[db] scan %v", err)
 		}
 		t[row.id] = TableInfo{row.dbName, row.visName}
 	}
-
 	return t, nil
+}
+
+// GetHeaders получение данных с базы
+func (d *Database) GetHeaders(idTable int) (*Headers, error) {
+	if d.err != nil {
+		return nil, d.err
+	}
+
+	rows, err := d.db.Query(sqlGetHeaders, idTable)
+	if err != nil {
+		return nil, err
+	}
+
+	headers := new(Headers)
+
+	headers.Columns = make(map[string]string)
+
+	for rows.Next() {
+
+		row := struct {
+			dbName     string
+			visName    string
+			htmlHeader sql.NullString
+		}{}
+
+		if err := rows.Scan(&row.dbName, &row.visName, &row.htmlHeader); err != nil {
+			return nil, err
+		}
+
+		if row.htmlHeader.Valid {
+			headers.HTML = row.htmlHeader.String
+			continue
+		} else {
+			headers.Columns[row.dbName] = row.visName
+		}
+	}
+
+	return headers, nil
+}
+
+// GetTextForEmptyTable получение данных с базы
+func (d *Database) GetTextForEmptyTable(idRegion, idTable int) (string, error) {
+	if d.err != nil {
+		return "", d.err
+	}
+
+	var text string
+
+	err := d.db.QueryRow(sqlGetEmptyText, idTable, idRegion).Scan(&text)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("[db] quer row:  %v", err)
+	}
+
+	return text, nil
 }

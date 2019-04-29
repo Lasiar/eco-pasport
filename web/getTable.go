@@ -16,12 +16,12 @@ func webGetTable(w http.ResponseWriter, r *http.Request) {
 		TableID  int    `json:"table_id"`
 	}{}
 	if err := parseJSON(r, tblInfo); err != nil {
-		context.SetResponse(r, fmt.Errorf("json decode %v", err))
+		context.SetError(r, fmt.Errorf("json decode %v", err))
 		return
 	}
 	userToken, err := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(tblInfo.Key)
 	if err != nil {
-		context.SetResponse(r, fmt.Errorf("key %v", err))
+		context.SetError(r, fmt.Errorf("key %v", err))
 		return
 	}
 	userEmail, err := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(tblInfo.User)
@@ -30,14 +30,13 @@ func webGetTable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if ac, err := model.GetDatabase().GetPrivilege(string(userEmail), string(userToken), tblInfo.TableID); err != nil || !ac {
-		w.WriteHeader(http.StatusForbidden)
+		context.SetError(r, err)
 		return
 	}
 	t, err := model.GetDatabase().GetTable(tblInfo.User, tblInfo.RegionID, tblInfo.TableID)
 	if err != nil {
-		context.SetResponse(r, fmt.Errorf("json encode %v", err))
+		context.SetError(r, fmt.Errorf("json encode %v", err))
 		return
 	}
-
 	context.SetResponse(r, t)
 }

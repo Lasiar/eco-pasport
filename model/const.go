@@ -38,7 +38,7 @@ eco_2018.Table_1_8_Pollutants_into_the_atmosphere_p1 p1
 inner join eco_2018.Table_1_8_Pollutants_into_the_atmosphere_p2 p2 on 
 p2.ID_p1 = p1.ID and p2.Name_of_pollutant = 'всего') t8 on 
 t8.name = org.Org_name
-where org.ID_Area = ?
+where org.ID_Area = @p1
 order by org.Org_name
 `
 
@@ -65,7 +65,7 @@ p1.Source
 from eco_2018.Table_1_8_Pollutants_into_the_atmosphere_p1 p1
 inner join eco_2018.Table_1_8_Pollutants_into_the_atmosphere_p2 p2 on p1.ID = p2.ID_p1
 
-where p1.ID_Area = ?`
+where p1.ID_Area = @p1`
 
 	sqSpacial13 string = `SELECT
 	[Year],
@@ -78,10 +78,10 @@ where p1.ID_Area = ?`
 	[Source]
 FROM
 	krasecology.eco_2018.Table_3_1_Fee_for_allowable_and_excess_emissions
-where ID_Area = ?`
+where ID_Area = @p1`
 
-	sqlGetCenterArea string = `SELECT lat, lng from krasecology.eco_2018.Table_0_0_Regions where ID = ?`
-	sqlGetInfoRegion string = `SELECT Admin_center , Creation_date, Population, Area, Gross_emissions, Withdrawn_water, Discharge_volume,Formed_waste  FROM eco_2018.Table_0_4_Regions_info WHERE Region_ID=?;`
+	sqlGetCenterArea string = `SELECT lat, lng from krasecology.eco_2018.Table_0_0_Regions where ID = @p1`
+	sqlGetInfoRegion string = `SELECT Admin_center , Creation_date, Population, Area, Gross_emissions, Withdrawn_water, Discharge_volume,Formed_waste  FROM eco_2018.Table_0_4_Regions_info WHERE Region_ID=@p1;`
 
 	// TODO: переделать на уровне базы этот шлак
 	sqlGetTableSpecial string = `select
@@ -115,7 +115,7 @@ FROM
 	eco_2018.Table_1_11_part_1 p1
 INNER JOIN eco_2018.Table_1_11_part_2 p2 on
 	p2.ID_p3 = p1.ID
-	and p2.ID_Area = ?`
+	and p2.ID_Area = @p1`
 
 	sqlGetTables string = "SELECT Table_ID, DB_Name, VisName FROM krasecology.eco_2018.Table_0_1_Tables"
 
@@ -129,24 +129,15 @@ from
 	krasecology.eco_2018.Table_0_1_Tables
 where
 	header is not null
-	and Table_ID = ?
+	and Table_ID = @p1
 union SELECT
 	column_name,
 	caption,
 	null as header
 from
 	krasecology.eco_2018.Table_0_2_Columns
-where Table_ID = ?
+where Table_ID = @p1
 `
 
-	sqlGetEmptyText string = "SELECT Empty_text FROM krasecology.eco_2018.Table_0_3_Empty_text where Table_ID = ? and Region_ID = ?"
-
-	sqlGetSQL string = `
-USE krasecology;
-
-declare @SQL varchar(max) EXECUTE eco_2018.sp_get_table ?,@p1,
-@p2,
-@SQL output
-EXECUTE (@sql)
-`
+	sqlGetEmptyText string = "SELECT Empty_text FROM krasecology.eco_2018.Table_0_3_Empty_text where Table_ID = @p1 and Region_ID = @p2"
 )

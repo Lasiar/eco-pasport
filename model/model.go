@@ -44,7 +44,7 @@ func GetDatabase() *Database {
 }
 
 func (d *Database) connectMSSQL() (err error) {
-	d.db, err = sql.Open("mssql", base.GetConfig().ConnStr)
+	d.db, err = sql.Open("sqlserver", base.GetConfig().ConnStr)
 	if err != nil {
 		return err
 	}

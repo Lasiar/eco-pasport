@@ -15,12 +15,10 @@ func (d *Database) SelectRegions() ([]Region, error) {
 	if d.err != nil {
 		return nil, d.err
 	}
-
 	rows, err := d.db.Query(sqlGetRegions)
 	if err != nil {
 		return nil, fmt.Errorf("[db] query %v", err)
 	}
-
 	regions := []Region{}
 
 	for rows.Next() {
