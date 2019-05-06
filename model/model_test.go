@@ -36,7 +36,7 @@ func TestDatabase_GetMap(t *testing.T) {
 		t.Errorf("error was not expected while updating stats: %s", err)
 	}
 
-	if !Equal(*c, *centre) {
+	if !EqualFloat(*c, *centre) {
 		t.Errorf("error wrong data centre, should: %v, get: %v", centre, c)
 	}
 	// we make sure that all expectations were met
@@ -66,7 +66,57 @@ func TestDatabase_GetMapError(t *testing.T) {
 	}
 }
 
-func Equal(a, b []float64) bool {
+func TestDatabase_SelectRegions(t *testing.T) {
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db := new(Database)
+	db.db, mock, err = sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	dataSet := []Region{
+		{0, 0, "first", false},
+		{1, 1, "second", true},
+	}
+	rows := sqlmock.NewRows([]string{
+		"id",
+		"num_region",
+		"name",
+		"isTown",
+	})
+	for _, d := range dataSet {
+		rows.AddRow(d.ID, d.NumRegion, d.Name, d.IsTown)
+	}
+
+	mock.ExpectQuery("[a-z]*").WillReturnRows(rows)
+
+	regions, err := db.SelectRegions()
+	if err != nil {
+		t.Errorf("error was not expected while updating stats: %s", err)
+	}
+	if !EqualRegions(regions, dataSet) {
+		t.Errorf("error wrong data centre, should: %v, get: %v", regions, dataSet)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func EqualRegions(a, b []Region) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func EqualFloat(a, b []float64) bool {
 	if len(a) != len(b) {
 		return false
 	}
