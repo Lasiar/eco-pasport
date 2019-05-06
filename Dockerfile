@@ -3,6 +3,7 @@ RUN go get -v github.com/denisenkom/go-mssqldb
 WORKDIR /go/src/EcoPasport
 COPY ./*.go /go/src/EcoPasport/
 COPY ./web/*.go /go/src/EcoPasport/web/
+COPY ./web/context/*.go /go/src/EcoPasport/web/context/
 COPY ./model/*.go /go/src/EcoPasport/model/
 copy ./base/*.go /go/src/EcoPasport/base/
 RUN ls

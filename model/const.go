@@ -1,7 +1,7 @@
 package model
 
 const (
-	sqlTest string = `SELECT 
+	sqlGetMapPoints string = `SELECT 
 org.org_name, 
 org.Adress,  
 t19.Allotted_wastewater_total, 

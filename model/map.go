@@ -18,13 +18,13 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 	}{}
 	err := d.db.QueryRow(sqlGetCenterArea, regionID).Scan(&center.lat, &center.lng)
 	if err != nil {
-		return nil, nil, fmt.Errorf("[db] get center %v", err)
+		return nil, nil, err
 	}
 	if !center.lat.Valid || !center.lng.Valid {
 		return nil, nil, sql.ErrNoRows
 	}
 	*centerArea = append(*centerArea, []float64{center.lat.Float64, center.lng.Float64}...)
-	rows, err := d.db.Query(sqlTest, regionID)
+	rows, err := d.db.Query(sqlGetMapPoints, sql.Named("p1", regionID))
 	if err != nil {
 		return nil, nil, err
 	}
