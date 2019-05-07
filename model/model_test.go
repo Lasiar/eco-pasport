@@ -18,8 +18,8 @@ func TestDatabase_GetMap(t *testing.T) {
 	}
 	defer db.db.Close()
 
-	centre := &[2]float64{1, 2}
-	rowsCentre := mock.NewRows([]string{"lat", "lng"}).AddRow(1, 2)
+	centre := &[2]float64{1.23, 2.1}
+	rowsCentre := mock.NewRows([]string{"lat", "lng"}).AddRow(1.23, 2.1)
 
 	dataPoint := []struct {
 		Name                      string
