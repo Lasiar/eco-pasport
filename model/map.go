@@ -11,7 +11,7 @@ func (d *Database) GetMap(regionID int) (*[2]float64, []Point, error) {
 	if d.err != nil {
 		return nil, nil, d.err
 	}
-	centerMap, err := d.selectCentrMap(regionID)
+	centerMap, err := d.selectCentreMap(regionID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -75,7 +75,7 @@ func (d *Database) GetMap(regionID int) (*[2]float64, []Point, error) {
 	return centerMap, *points, nil
 }
 
-func (d *Database) selectCentrMap(regionID int) (*[2]float64, error) {
+func (d *Database) selectCentreMap(regionID int) (*[2]float64, error) {
 	centerArea := new([2]float64)
 	center := struct {
 		lat sql.NullFloat64

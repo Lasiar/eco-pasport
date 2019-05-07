@@ -8,6 +8,16 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 )
 
+func BenchmarkDatabase_GetMap(b *testing.B) {
+	db := GetDatabase()
+	for i := 0; i < b.N; i++ {
+		_, _, err := db.GetMap(45)
+		if err != nil {
+			b.Errorf("error was not expected while updating stats: %s", err)
+		}
+	}
+}
+
 func TestDatabase_GetMap(t *testing.T) {
 	var mock sqlmock.Sqlmock
 	var err error
