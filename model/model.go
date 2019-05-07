@@ -177,8 +177,8 @@ where Table_ID = ?
 	sqlGetSQL string = `
 USE krasecology;
 
-declare @SQL varchar(max) EXECUTE eco_2018.sp_get_table ?,@p1,
-@p2,
+declare @SQL varchar(max) EXECUTE eco_2018.sp_get_table ?,?,
+?,
 @SQL output
 EXECUTE (@sql)
 `
