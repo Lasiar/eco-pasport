@@ -15,6 +15,13 @@ type EpTree struct {
 	TreeItem []*nodeEpTree `xml:"TreeItem"`
 }
 
+type nodeEpTree struct {
+	Name      string        `xml:"name,attr"`
+	TableID   string        `xml:"table_id,attr" json:",omitempty"`
+	TableName string        `xml:"table_name,attr"  json:",omitempty"`
+	TreeItem  []*nodeEpTree `xml:"TreeItem"  json:",omitempty"`
+}
+
 // GetTree get table tree
 func GetTree() (EpTree, error) {
 	res := struct {

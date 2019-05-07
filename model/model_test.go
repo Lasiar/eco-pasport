@@ -129,12 +129,10 @@ func TestDatabase_GetMap(t *testing.T) {
 		t.Error(err)
 	}
 
-	for _, p := range point {
-		t.Logf("%s: %s", p.Name, p.AllottedWastewaterTotal)
+	expected := `[{"Name":"test2","Address":"Los Santos","WasteGenerationForTheYear":"105888.635","AllottedWastewaterTotal":"Енисей - 88009.12; ","IntoTheAtmo":"14052.45","Latitude":1,"Longitude":13.5},{"Name":"test1","Address":"Los Santos","WasteGenerationForTheYear":"105888.635","AllottedWastewaterTotal":"Кача - 100; Кача - 1001; ","IntoTheAtmo":"14052.45","Latitude":1,"Longitude":13.5},{"Name":"test3","Address":"Los Santos","WasteGenerationForTheYear":"105888.635","AllottedWastewaterTotal":"Азерот - 88009.12; ","IntoTheAtmo":"14052.10","Latitude":1,"Longitude":13.5},{"Name":"test5","Address":"Los Santos","WasteGenerationForTheYear":"105888.635","AllottedWastewaterTotal":"еуые - 88009.12; ","IntoTheAtmo":"14052.10","Latitude":1,"Longitude":13.5}]`
+	if string(b) != expected {
+		t.Fatalf("expected: %v, got: %v", expected, string(b))
 	}
-
-	t.Log(string(b))
-
 	if !EqualFloat(*c, *centre) {
 		t.Errorf("error wrong dataPoint centre, should: %v, get: %v", centre, c)
 	}

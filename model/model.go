@@ -56,42 +56,6 @@ func (d *Database) connectMSSQL() (err error) {
 	return d.db.Ping()
 }
 
-// TableInfo информация от пользвателя для выдачи таблицы
-type TableInfo struct {
-	DBTable string
-	VisName string
-}
-
-// Table отдаваемая пользователю таблица
-type Table struct {
-	Header            []string `json:",omitempty"`
-	HeaderAsHTML      string   `json:",omitempty"`
-	Value             [][]string
-	InfoForEmptyValue string `json:",omitempty"`
-}
-
-// Headers кеширование всех хейдоеров
-type Headers struct {
-	Columns map[string]string
-	HTML    string
-}
-
-// RegionInfo info by region
-type RegionInfo struct {
-	GeneralInformation struct {
-		AdminCenter  string
-		CreationDate int
-		Population   string
-		Area         string
-	}
-	EnvironmentalAssessment struct {
-		GrossEmissions  string
-		WithdrawnWater  string
-		DischargeVolume string
-		FormedWaste     string
-	}
-}
-
 // GetRegionInfo select info databases
 func (d *Database) GetRegionInfo(id int) (*RegionInfo, bool, error) {
 	if d.err != nil {
@@ -123,22 +87,4 @@ func (d *Database) GetRegionInfo(id int) (*RegionInfo, bool, error) {
 	}
 
 	return regionInfo, true, nil
-}
-
-// Point map point
-type Point struct {
-	Name                      string
-	Address                   string
-	WasteGenerationForTheYear string
-	AllottedWastewaterTotal   string
-	IntoTheAtmo               string
-	Latitude                  float64
-	Longitude                 float64
-}
-
-type nodeEpTree struct {
-	Name      string        `xml:"name,attr"`
-	TableID   string        `xml:"table_id,attr" json:",omitempty"`
-	TableName string        `xml:"table_name,attr"  json:",omitempty"`
-	TreeItem  []*nodeEpTree `xml:"TreeItem"  json:",omitempty"`
 }

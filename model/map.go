@@ -5,6 +5,17 @@ import (
 	"fmt"
 )
 
+// Point map point
+type Point struct {
+	Name                      string
+	Address                   string
+	WasteGenerationForTheYear string
+	AllottedWastewaterTotal   string
+	IntoTheAtmo               string
+	Latitude                  float64
+	Longitude                 float64
+}
+
 // GetMap получение данных с базы
 func (d *Database) GetMap(regionID int) (*[2]float64, []Point, error) {
 	if d.err != nil {

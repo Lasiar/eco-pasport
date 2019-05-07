@@ -10,6 +10,22 @@ type Region struct {
 	IsTown    bool
 }
 
+// RegionInfo info by region
+type RegionInfo struct {
+	GeneralInformation struct {
+		AdminCenter  string
+		CreationDate int
+		Population   string
+		Area         string
+	}
+	EnvironmentalAssessment struct {
+		GrossEmissions  string
+		WithdrawnWater  string
+		DischargeVolume string
+		FormedWaste     string
+	}
+}
+
 // SelectRegions get regions
 func (d *Database) SelectRegions() ([]Region, error) {
 	if d.err != nil {

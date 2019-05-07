@@ -7,6 +7,26 @@ import (
 	"time"
 )
 
+// TableInfo информация от пользвателя для выдачи таблицы
+type TableInfo struct {
+	DBTable string
+	VisName string
+}
+
+// Table отдаваемая пользователю таблица
+type Table struct {
+	Header            []string `json:",omitempty"`
+	HeaderAsHTML      string   `json:",omitempty"`
+	Value             [][]string
+	InfoForEmptyValue string `json:",omitempty"`
+}
+
+// Headers кеширование всех хейдоеров
+type Headers struct {
+	Columns map[string]string
+	HTML    string
+}
+
 // GetTable получение данных с базы
 func (d *Database) GetTable(user string, regionID, tableID int) (*Table, error) {
 	if d.err != nil {
