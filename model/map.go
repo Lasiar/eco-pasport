@@ -51,12 +51,12 @@ func (d *Database) GetMap(regionID int) (*[2]float64, []Point, error) {
 			point.AllottedWastewaterTotal += fmt.Sprintf("%v - %v; ", tmpWaterObject.String, tmpAllottedWastewaterTotal.String)
 		}
 		if value, ok := points[point.Name]; ok {
-			(*value).AllottedWastewaterTotal += point.AllottedWastewaterTotal
+			value.AllottedWastewaterTotal += point.AllottedWastewaterTotal
 			continue
 		}
 		points[point.Name] = point
 	}
-	p := make([]Point, len(points), len(points))
+	p := make([]Point, len(points))
 	i := 0
 	for _, value := range points {
 		p[i] = *value
