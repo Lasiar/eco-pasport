@@ -3,7 +3,6 @@ package model
 import (
 	"database/sql"
 	"fmt"
-	"strings"
 )
 
 // GetMap получение данных с базы
@@ -20,12 +19,9 @@ func (d *Database) GetMap(regionID int) (*[2]float64, []Point, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	points := new([]Point)
-	var currentName string
-	var tmpWater []string
-	first := true
+	points := make(map[string]*Point)
 	for rows.Next() {
-		var point Point
+		point := new(Point)
 		var (
 			tmpAllottedWastewaterTotal sql.NullString
 			tmpPointWasteGenerator     sql.NullString
@@ -45,34 +41,28 @@ func (d *Database) GetMap(regionID int) (*[2]float64, []Point, error) {
 		if err != nil {
 			return nil, nil, fmt.Errorf("porint %v", err)
 		}
-		if first {
-			tmpWater = append(tmpWater, fmt.Sprintf("%v - %v", tmpWaterObject.String, tmpAllottedWastewaterTotal.String))
-			if tmpPointWasteGenerator.Valid {
-				point.WasteGenerationForTheYear = tmpPointWasteGenerator.String
-			}
-			if tmpIntoAmto.Valid {
-				point.IntoTheAtmo = tmpIntoAmto.String
-			}
-			point.AllottedWastewaterTotal = strings.Join(tmpWater, "; ")
-			*points = append(*points, point)
-			tmpWater = nil
-			first = false
+		if tmpPointWasteGenerator.Valid {
+			point.WasteGenerationForTheYear = tmpPointWasteGenerator.String
 		}
-		if point.Name != currentName {
-			if tmpPointWasteGenerator.Valid {
-				point.WasteGenerationForTheYear = tmpPointWasteGenerator.String
-			}
-			if tmpIntoAmto.Valid {
-				point.IntoTheAtmo = tmpIntoAmto.String
-			}
-			point.AllottedWastewaterTotal = strings.Join(tmpWater, "; ")
-			*points = append(*points, point)
-			tmpWater = nil
-			currentName = point.Name
+		if tmpIntoAmto.Valid {
+			point.IntoTheAtmo = tmpIntoAmto.String
 		}
-		tmpWater = append(tmpWater, fmt.Sprintf("%v - %v", tmpWaterObject.String, tmpAllottedWastewaterTotal.String))
+		if tmpWaterObject.Valid || tmpAllottedWastewaterTotal.Valid {
+			point.AllottedWastewaterTotal += fmt.Sprintf("%v - %v; ", tmpWaterObject.String, tmpAllottedWastewaterTotal.String)
+		}
+		if value, ok := points[point.Name]; ok {
+			(*value).AllottedWastewaterTotal += point.AllottedWastewaterTotal
+			continue
+		}
+		points[point.Name] = point
 	}
-	return centerMap, *points, nil
+	p := make([]Point, len(points), len(points))
+	i := 0
+	for _, value := range points {
+		p[i] = *value
+		i++
+	}
+	return centerMap, p, nil
 }
 
 func (d *Database) selectCentreMap(regionID int) (*[2]float64, error) {

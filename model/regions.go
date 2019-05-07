@@ -19,11 +19,9 @@ func (d *Database) SelectRegions() ([]Region, error) {
 	if err != nil {
 		return nil, fmt.Errorf("[db] query %v", err)
 	}
-	regions := []Region{}
-
+	var regions []Region
 	for rows.Next() {
 		r := Region{}
-
 		if err := rows.Scan(&r.ID, &r.NumRegion, &r.Name, &r.IsTown); err != nil {
 			return nil, fmt.Errorf("[db] scan %v", err)
 		}

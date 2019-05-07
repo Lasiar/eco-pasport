@@ -39,7 +39,6 @@ inner join eco_2018.Table_1_8_Pollutants_into_the_atmosphere_p2 p2 on
 p2.ID_p1 = p1.ID and p2.Name_of_pollutant = 'всего') t8 on 
 t8.name = org.Org_name
 where org.ID_Area = @p1
-order by org.Org_name
 `
 
 	sqlSpectial18 string = `select 

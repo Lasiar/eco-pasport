@@ -71,6 +71,26 @@ func TestDatabase_GetMap(t *testing.T) {
 			Latitude:                  1,
 			Longitude:                 13.5,
 		},
+		{
+			Name:                      "test3",
+			Address:                   "Los Santos",
+			WasteGenerationForTheYear: "105888.635",
+			AllottedWastewaterTotal:   "88009.12",
+			WaterObject:               "Азерот",
+			IntoTheAtmo:               "14052.10",
+			Latitude:                  1,
+			Longitude:                 13.5,
+		},
+		{
+			Name:                      "test5",
+			Address:                   "Los Santos",
+			WasteGenerationForTheYear: "105888.635",
+			AllottedWastewaterTotal:   "88009.12",
+			WaterObject:               "еуые",
+			IntoTheAtmo:               "14052.10",
+			Latitude:                  1,
+			Longitude:                 13.5,
+		},
 	}
 
 	rowsPoint := mock.NewRows([]string{
@@ -107,6 +127,10 @@ func TestDatabase_GetMap(t *testing.T) {
 	b, err := json.Marshal(&point)
 	if err != nil {
 		t.Error(err)
+	}
+
+	for _, p := range point {
+		t.Logf("%s: %s", p.Name, p.AllottedWastewaterTotal)
 	}
 
 	t.Log(string(b))
