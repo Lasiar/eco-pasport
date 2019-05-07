@@ -16,19 +16,27 @@ type Point struct {
 	Longitude                 float64
 }
 
-// GetMap получение данных с базы
-func (d *Database) GetMap(regionID int) (*[2]float64, []Point, error) {
+// GetMap get map current region by region
+func (d *Database) GetMap(regionID int) (cordsCentre *[2]float64, points *[]Point, err error) {
 	if d.err != nil {
 		return nil, nil, d.err
 	}
-	centerMap, err := d.selectCentreMap(regionID)
+	cordsCentre, err = d.SelectCentreMap(regionID)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	rows, err := d.db.Query(sqlGetMapPoints, sql.Named("p1", regionID))
+	points, err = d.SelectPointsMap(regionID)
 	if err != nil {
 		return nil, nil, err
+	}
+	return cordsCentre, points, nil
+}
+
+// SelectPointsMap select point map to current region
+func (d *Database) SelectPointsMap(regionID int) (*[]Point, error) {
+	rows, err := d.db.Query(sqlGetMapPoints, sql.Named("p1", regionID))
+	if err != nil {
+		return nil, err
 	}
 	points := make(map[string]*Point)
 	for rows.Next() {
@@ -50,7 +58,7 @@ func (d *Database) GetMap(regionID int) (*[2]float64, []Point, error) {
 			&point.Longitude,
 		)
 		if err != nil {
-			return nil, nil, fmt.Errorf("porint %v", err)
+			return nil, fmt.Errorf("porint %v", err)
 		}
 		if tmpPointWasteGenerator.Valid {
 			point.WasteGenerationForTheYear = tmpPointWasteGenerator.String
@@ -73,10 +81,11 @@ func (d *Database) GetMap(regionID int) (*[2]float64, []Point, error) {
 		p[i] = *value
 		i++
 	}
-	return centerMap, p, nil
+	return &p, nil
 }
 
-func (d *Database) selectCentreMap(regionID int) (*[2]float64, error) {
+// SelectCentreMap get cord centre map
+func (d *Database) SelectCentreMap(regionID int) (*[2]float64, error) {
 	centerArea := new([2]float64)
 	center := struct {
 		lat sql.NullFloat64

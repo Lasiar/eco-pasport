@@ -123,13 +123,8 @@ func TestDatabase_GetMap(t *testing.T) {
 	if err != nil {
 		t.Errorf("error was not expected while updating stats: %s", err)
 	}
-	//b, err := json.Marshal(&point)
-	//if err != nil {
-	//	t.Error(err)
-	//}
-
-	for _, p := range point {
-		t.Logf("%v: %v", p.Name,p.AllottedWastewaterTotal)
+	for _, p := range *point {
+		t.Logf("%v: %v", p.Name, p.AllottedWastewaterTotal)
 	}
 
 	if !EqualFloat(*c, *centre) {

@@ -144,7 +144,7 @@ func (d *Database) GetPrivilege(emailUser, keyUser string, idTable int) (bool, e
 	inner join dbo.USER_User u on eu.User_ID = u.ID_USER_User
 	inner join eco_2018.Table_0_6_Access_Right ac on ac.ID_Role = eu.Role_ID
 	where u.EMail = @email`, idTable)
-	err := d.db.QueryRow(query, sql.Named("email", emailUser)).Scan(&isAccess);
+	err := d.db.QueryRow(query, sql.Named("email", emailUser)).Scan(&isAccess)
 	if err == sql.ErrNoRows {
 		if err := d.db.QueryRow(queryDefault).Scan(&isAccess); err != nil {
 			return false, err
