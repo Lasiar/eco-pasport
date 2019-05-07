@@ -24,7 +24,7 @@ func webGetMap(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := struct {
-		Center *[]float64
+		Center *[2]float64
 		Points []model.Point
 	}{}
 

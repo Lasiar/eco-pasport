@@ -2,7 +2,6 @@ package context
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 )
 
@@ -64,7 +63,6 @@ func SetError(r *http.Request, err error) {
 
 // SetResponse устанавливает в контекст json ответ
 func SetResponse(r *http.Request, data interface{}) {
-	fmt.Println(data)
 	*r = *r.WithContext(
 		WithResponseContext(
 			r.Context(),

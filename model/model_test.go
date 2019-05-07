@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+	"encoding/json"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -17,27 +18,91 @@ func TestDatabase_GetMap(t *testing.T) {
 	}
 	defer db.db.Close()
 
-	centre := &[]float64{1, 2}
-	rows := mock.NewRows([]string{"lat", "lng"}).AddRow(1, 2)
+	centre := &[2]float64{1, 2}
+	rowsCentre := mock.NewRows([]string{"lat", "lng"}).AddRow(1, 2)
 
-	mock.ExpectQuery("[a-z]*").WithArgs(45).WillReturnRows(rows)
-	mock.ExpectQuery("[a-z]*").WithArgs(45).WillReturnRows(mock.NewRows([]string{"org.org_name", "org.Adress",
+	dataPoint := []struct {
+		Name                      string
+		Address                   string
+		WasteGenerationForTheYear string
+		AllottedWastewaterTotal   string
+		WaterObject               string
+		IntoTheAtmo               string
+		Latitude                  float64
+		Longitude                 float64
+	}{
+		{
+			Name:                      "test2",
+			Address:                   "Los Santos",
+			WasteGenerationForTheYear: "105888.635",
+			AllottedWastewaterTotal:   "88009.12",
+			WaterObject:               "Енисей",
+			IntoTheAtmo:               "14052.45",
+			Latitude:                  1,
+			Longitude:                 13.5,
+		},
+		{
+			Name:                      "test1",
+			Address:                   "Los Santos",
+			WasteGenerationForTheYear: "105888.635",
+			AllottedWastewaterTotal:   "100",
+			WaterObject:               "Кача",
+			IntoTheAtmo:               "14052.45",
+			Latitude:                  1,
+			Longitude:                 13.5,
+		},
+		{
+			Name:                      "test1",
+			Address:                   "Los Santos",
+			WasteGenerationForTheYear: "105888.635",
+			AllottedWastewaterTotal:   "1001",
+			WaterObject:               "Кача",
+			IntoTheAtmo:               "14052.45",
+			Latitude:                  1,
+			Longitude:                 13.5,
+		},
+	}
+
+	rowsPoint := mock.NewRows([]string{
+		"org.org_name",
+		"org.Adress",
 		"19.Allotted_wastewater_total",
 		"t19.Water_object",
 		"t11.Waste_generation_for_the_year",
 		"t8.Into_the_atmosphere",
 		"org.lat",
-		"org.lng",
-	}))
+		"org.lng"})
+
+	for _, data := range dataPoint {
+		rowsPoint.AddRow(
+			data.Name,
+			data.Address,
+			data.AllottedWastewaterTotal,
+			data.WaterObject,
+			data.WasteGenerationForTheYear,
+			data.IntoTheAtmo,
+			data.Latitude,
+			data.Longitude,
+		)
+	}
+
+	mock.ExpectQuery("[a-z]*").WithArgs(45).WillReturnRows(rowsCentre)
+	mock.ExpectQuery("[a-z]*").WithArgs(45).WillReturnRows(rowsPoint)
 
 	// now we execute our method
-	c, _, err := db.GetMap(45)
+	c, point, err := db.GetMap(45)
 	if err != nil {
 		t.Errorf("error was not expected while updating stats: %s", err)
 	}
+	b, err := json.Marshal(&point)
+	if err != nil {
+		t.Error(err)
+	}
+
+	t.Log(string(b))
 
 	if !EqualFloat(*c, *centre) {
-		t.Errorf("error wrong data centre, should: %v, get: %v", centre, c)
+		t.Errorf("error wrong dataPoint centre, should: %v, get: %v", centre, c)
 	}
 	// we make sure that all expectations were met
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -116,10 +181,7 @@ func EqualRegions(a, b []Region) bool {
 	return true
 }
 
-func EqualFloat(a, b []float64) bool {
-	if len(a) != len(b) {
-		return false
-	}
+func EqualFloat(a, b [2]float64) bool {
 	for i, v := range a {
 		if v != b[i] {
 			return false

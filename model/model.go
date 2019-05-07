@@ -21,6 +21,11 @@ type Database struct {
 	err error
 }
 
+// SetDB set current database
+func (d *Database) SetDB(db *sql.DB) {
+	d.db = db
+}
+
 func (d *Database) Error() string {
 	return d.err.Error()
 }

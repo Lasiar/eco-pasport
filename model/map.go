@@ -7,15 +7,16 @@ import (
 )
 
 // GetMap получение данных с базы
-func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
+func (d *Database) GetMap(regionID int) (*[2]float64, []Point, error) {
 	if d.err != nil {
 		return nil, nil, d.err
 	}
-	centerArea := new([]float64)
+	centerArea := new([2]float64)
 	center := struct {
 		lat sql.NullFloat64
 		lng sql.NullFloat64
 	}{}
+
 	err := d.db.QueryRow(sqlGetCenterArea, regionID).Scan(&center.lat, &center.lng)
 	if err != nil {
 		return nil, nil, err
@@ -23,7 +24,8 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 	if !center.lat.Valid || !center.lng.Valid {
 		return nil, nil, sql.ErrNoRows
 	}
-	*centerArea = append(*centerArea, []float64{center.lat.Float64, center.lng.Float64}...)
+	centerArea[0] = center.lat.Float64
+	centerArea[1] = center.lng.Float64
 	rows, err := d.db.Query(sqlGetMapPoints, sql.Named("p1", regionID))
 	if err != nil {
 		return nil, nil, err
@@ -40,7 +42,17 @@ func (d *Database) GetMap(regionID int) (*[]float64, []Point, error) {
 			tmpWaterObject             sql.NullString
 			tmpIntoAmto                sql.NullString
 		)
-		if err := rows.Scan(&point.Name, &point.Address, &tmpAllottedWastewaterTotal, &tmpWaterObject, &tmpPointWasteGenerator, &tmpIntoAmto, &point.Latitude, &point.Longitude); err != nil {
+		err := rows.Scan(
+			&point.Name,
+			&point.Address,
+			&tmpAllottedWastewaterTotal,
+			&tmpWaterObject,
+			&tmpPointWasteGenerator,
+			&tmpIntoAmto,
+			&point.Latitude,
+			&point.Longitude,
+		)
+		if err != nil {
 			return nil, nil, fmt.Errorf("porint %v", err)
 		}
 		if first {

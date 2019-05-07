@@ -73,7 +73,7 @@ func JSONWriteHandler(next http.Handler) http.Handler {
 			case sql.ErrNoRows:
 				http.Error(w, "Нет данных по данному запросы", 404)
 			default:
-				w.WriteHeader(http.StatusInternalServerError)
+				http.Error(w, "error", http.StatusInternalServerError)
 			}
 			log.Println(err)
 			return
