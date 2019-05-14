@@ -23,7 +23,10 @@ type Database struct {
 
 // SetDB set current database
 func (d *Database) SetDB(db *sql.DB) {
-	d.db = db
+	_once.Do(func() {
+		_db = new(Database)
+		_db.db = db
+	})
 }
 
 func (d *Database) Error() string {

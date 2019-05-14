@@ -33,10 +33,10 @@ func webGetTable(w http.ResponseWriter, r *http.Request) {
 		context.SetError(r, err)
 		return
 	}
-	t, err := model.GetDatabase().GetTable(tblInfo.User, tblInfo.RegionID, tblInfo.TableID)
+	table, err := model.GetDatabase().GetTable(tblInfo.RegionID, tblInfo.TableID)
 	if err != nil {
 		context.SetError(r, fmt.Errorf("json encode %v", err))
 		return
 	}
-	context.SetResponse(r, t)
+	context.SetResponse(r, table)
 }

@@ -15,8 +15,9 @@ type TableInfo struct {
 
 // Table отдаваемая пользователю таблица
 type Table struct {
-	Header            []string `json:",omitempty"`
-	HeaderAsHTML      string   `json:",omitempty"`
+	Header []string `json:",omitempty"`
+	// HeaderAsHTML Если html находится в базе (для могоуровневых заголовков)
+	HeaderAsHTML      string `json:",omitempty"`
 	Value             [][]string
 	InfoForEmptyValue string `json:",omitempty"`
 }
@@ -28,16 +29,14 @@ type Headers struct {
 }
 
 // GetTable получение данных с базы
-func (d *Database) GetTable(user string, regionID, tableID int) (*Table, error) {
+func (d *Database) GetTable(regionID, tableID int) (*Table, error) {
 	if d.err != nil {
 		return nil, d.err
 	}
-
 	var (
 		rows *sql.Rows
 		err  error
 	)
-
 	switch tableID {
 	case 1014:
 		rows, err = d.db.Query(sqlGetTableSpecial, regionID)
@@ -46,8 +45,7 @@ func (d *Database) GetTable(user string, regionID, tableID int) (*Table, error) 
 	case 1024:
 		rows, err = d.db.Query(sqSpacial13, regionID)
 	default:
-		rows, err = d.db.Query("declare @SQL varchar(max) EXEC  krasecology.eco_2018.sp_get_table @User, @Table_id, @Region_id, @SQL output; EXECUTE (@sql)",
-			sql.Named("User", user),
+		rows, err = d.db.Query("declare @SQL varchar(max) EXEC  krasecology.eco_2018.sp_get_table '', @Table_id, @Region_id, @SQL output; EXECUTE (@sql)",
 			sql.Named("Table_id", tableID),
 			sql.Named("Region_id", regionID),
 		)
@@ -55,19 +53,15 @@ func (d *Database) GetTable(user string, regionID, tableID int) (*Table, error) 
 	if err != nil {
 		return nil, fmt.Errorf("[db] query %v", err)
 	}
-
 	columns, err := rows.Columns()
 	if err != nil {
 		return nil, fmt.Errorf("[db] column %v", err)
 	}
-
 	headers, err := GetDatabase().GetHeaders(tableID)
 	if err != nil {
 		return nil, fmt.Errorf("[db] получение заголовгов: %v", err)
 	}
-
 	t := new(Table)
-
 	if headers.HTML != "" {
 		t.HeaderAsHTML = headers.HTML
 	} else {
@@ -75,40 +69,30 @@ func (d *Database) GetTable(user string, regionID, tableID int) (*Table, error) 
 			t.Header = append(t.Header, headers.Columns[column])
 		}
 	}
-
 	rawResult := make([][]byte, len(columns))
-
 	dest := make([]interface{}, len(columns))
 	for i := range rawResult {
 		dest[i] = &rawResult[i]
 	}
-
 	for rows.Next() {
-
 		result := make([]string, len(columns))
-
 		err = rows.Scan(dest...)
 		if err != nil {
 			return nil, fmt.Errorf("[db] rows scan %v", err)
 		}
-
 		for j, raw := range rawResult {
 			if raw == nil {
 				result[j] = ""
 			} else {
 				result[j] = string(raw)
 			}
-
 		}
-
 		t.Value = append(t.Value, result)
 	}
-
 	t.InfoForEmptyValue, err = d.GetTextForEmptyTable(regionID, tableID)
 	if err != nil {
 		return &Table{}, err
 	}
-
 	return t, nil
 }
 
@@ -189,36 +173,28 @@ func (d *Database) GetHeaders(idTable int) (*Headers, error) {
 	if d.err != nil {
 		return nil, d.err
 	}
-
 	rows, err := d.db.Query(sqlGetHeaders, idTable)
 	if err != nil {
 		return nil, err
 	}
-
 	headers := new(Headers)
-
 	headers.Columns = make(map[string]string)
-
 	for rows.Next() {
-
 		row := struct {
 			dbName     string
 			visName    string
 			htmlHeader sql.NullString
 		}{}
-
-		if err := rows.Scan(&row.dbName, &row.visName, &row.htmlHeader); err != nil {
+		err := rows.Scan(&row.dbName, &row.visName, &row.htmlHeader)
+		if err != nil {
 			return nil, err
 		}
-
 		if row.htmlHeader.Valid {
 			headers.HTML = row.htmlHeader.String
 			continue
-		} else {
-			headers.Columns[row.dbName] = row.visName
 		}
+		headers.Columns[row.dbName] = row.visName
 	}
-
 	return headers, nil
 }
 
@@ -227,17 +203,13 @@ func (d *Database) GetTextForEmptyTable(idRegion, idTable int) (string, error) {
 	if d.err != nil {
 		return "", d.err
 	}
-
 	var text string
-
 	err := d.db.QueryRow(sqlGetEmptyText, idTable, idRegion).Scan(&text)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
-
 	if err != nil {
 		return "", fmt.Errorf("[db] quer row:  %v", err)
 	}
-
 	return text, nil
 }

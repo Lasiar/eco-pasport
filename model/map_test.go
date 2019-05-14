@@ -127,9 +127,6 @@ func TestDatabase_GetMap(t *testing.T) {
 			if !reflect.DeepEqual(gotCordsCentre, tt.wantCordsCentre) {
 				t.Errorf("Database.GetMap() gotCordsCentre = %v, want %v", gotCordsCentre, tt.wantCordsCentre)
 			}
-			//if !reflect.DeepEqual(gotPoints, tt.wantPoints) {
-			//	t.Errorf("Database.GetMap() gotPoints = %v, want %v", gotPoints, tt.wantPoints)
-			//}
 		})
 	}
 }
@@ -183,9 +180,9 @@ func TestDatabase_SelectPointsMap(t *testing.T) {
 				return
 			}
 			// fixme: selectPointsMap build slice from map, order not stability
-			//if !reflect.DeepEqual(got, tt.want) {
-			//	t.Errorf("Database.SelectPointsMap() = %v, want %v", got, tt.want)
-			//}
+			//  if !reflect.DeepEqual(got, tt.want) {
+			//	  t.Errorf("Database.SelectPointsMap() = %v, want %v", got, tt.want)
+			//  }
 		})
 	}
 }

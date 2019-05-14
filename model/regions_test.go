@@ -1,9 +1,10 @@
 package model
 
 import (
-	"github.com/DATA-DOG/go-sqlmock"
 	"reflect"
 	"testing"
+
+	"github.com/DATA-DOG/go-sqlmock"
 )
 
 func TestDatabase_SelectRegions(t *testing.T) {

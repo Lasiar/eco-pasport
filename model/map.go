@@ -21,7 +21,7 @@ func (d *Database) GetMap(regionID int) (cordsCentre *[2]float64, points *[]Poin
 	if d.err != nil {
 		return nil, nil, d.err
 	}
-	cordsCentre, err = d.SelectCentreMap(regionID)
+	cordsCentre, err = d.SelectMapCentre(regionID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -34,6 +34,9 @@ func (d *Database) GetMap(regionID int) (cordsCentre *[2]float64, points *[]Poin
 
 // SelectPointsMap select point map to current region
 func (d *Database) SelectPointsMap(regionID int) (*[]Point, error) {
+	if d.err != nil {
+		return nil, d.err
+	}
 	rows, err := d.db.Query(sqlGetMapPoints, sql.Named("p1", regionID))
 	if err != nil {
 		return nil, err
@@ -84,8 +87,11 @@ func (d *Database) SelectPointsMap(regionID int) (*[]Point, error) {
 	return &p, nil
 }
 
-// SelectCentreMap get cord centre map
-func (d *Database) SelectCentreMap(regionID int) (*[2]float64, error) {
+// SelectMapCentre get cord centre map
+func (d *Database) SelectMapCentre(regionID int) (*[2]float64, error) {
+	if d.err != nil {
+		return nil, d.err
+	}
 	centerArea := new([2]float64)
 	center := struct {
 		lat sql.NullFloat64

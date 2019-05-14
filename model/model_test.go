@@ -2,216 +2,131 @@ package model
 
 import (
 	"database/sql"
+	"reflect"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	_ "github.com/denisenkom/go-mssqldb"
 )
 
-func BenchmarkDatabase_GetMap(b *testing.B) {
-	db := GetDatabase()
-	for i := 0; i < b.N; i++ {
-		_, _, err := db.GetMap(45)
-		if err != nil {
-			b.Errorf("error was not expected while updating stats: %s", err)
-		}
-	}
-}
-
-func TestDatabase_GetMap(t *testing.T) {
+func Init() (*Database, sqlmock.Sqlmock, error) {
 	var mock sqlmock.Sqlmock
 	var err error
+
 	db := new(Database)
 	db.db, mock, err = sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	return db, mock, err
+}
+
+func TestDatabase_SetDB(t *testing.T) {
+	type args struct {
+		db *sql.DB
 	}
-	defer db.db.Close()
-
-	centre := &[2]float64{1.23, 2.1}
-	rowsCentre := mock.NewRows([]string{"lat", "lng"}).AddRow(1.23, 2.1)
-
-	dataPoint := []struct {
-		Name                      string
-		Address                   string
-		WasteGenerationForTheYear string
-		AllottedWastewaterTotal   string
-		WaterObject               string
-		IntoTheAtmo               string
-		Latitude                  float64
-		Longitude                 float64
+	tests := []struct {
+		name string
+		d    *Database
+		args args
 	}{
-		{
-			Name:                      "test2",
-			Address:                   "Los Santos",
-			WasteGenerationForTheYear: "105888.635",
-			AllottedWastewaterTotal:   "88009.12",
-			WaterObject:               "Енисей",
-			IntoTheAtmo:               "14052.45",
-			Latitude:                  1,
-			Longitude:                 13.5,
-		},
-		{
-			Name:                      "test1",
-			Address:                   "Los Santos",
-			WasteGenerationForTheYear: "105888.635",
-			AllottedWastewaterTotal:   "100",
-			WaterObject:               "Кача",
-			IntoTheAtmo:               "14052.45",
-			Latitude:                  1,
-			Longitude:                 13.5,
-		},
-		{
-			Name:                      "test1",
-			Address:                   "Los Santos",
-			WasteGenerationForTheYear: "105888.635",
-			AllottedWastewaterTotal:   "1001",
-			WaterObject:               "Кача",
-			IntoTheAtmo:               "14052.45",
-			Latitude:                  1,
-			Longitude:                 13.5,
-		},
-		{
-			Name:                      "test3",
-			Address:                   "Los Santos",
-			WasteGenerationForTheYear: "105888.635",
-			AllottedWastewaterTotal:   "88009.12",
-			WaterObject:               "Азерот",
-			IntoTheAtmo:               "14052.10",
-			Latitude:                  1,
-			Longitude:                 13.5,
-		},
-		{
-			Name:                      "test5",
-			Address:                   "Los Santos",
-			WasteGenerationForTheYear: "105888.635",
-			AllottedWastewaterTotal:   "88009.12",
-			WaterObject:               "еуые",
-			IntoTheAtmo:               "14052.10",
-			Latitude:                  1,
-			Longitude:                 13.5,
-		},
+		// TODO: Add test cases.
 	}
-
-	rowsPoint := mock.NewRows([]string{
-		"org.org_name",
-		"org.Adress",
-		"19.Allotted_wastewater_total",
-		"t19.Water_object",
-		"t11.Waste_generation_for_the_year",
-		"t8.Into_the_atmosphere",
-		"org.lat",
-		"org.lng"})
-
-	for _, data := range dataPoint {
-		rowsPoint.AddRow(
-			data.Name,
-			data.Address,
-			data.AllottedWastewaterTotal,
-			data.WaterObject,
-			data.WasteGenerationForTheYear,
-			data.IntoTheAtmo,
-			data.Latitude,
-			data.Longitude,
-		)
-	}
-
-	mock.ExpectQuery("[a-z]*").WithArgs(45).WillReturnRows(rowsCentre)
-	mock.ExpectQuery("[a-z]*").WithArgs(45).WillReturnRows(rowsPoint)
-
-	// now we execute our method
-	c, point, err := db.GetMap(45)
-	if err != nil {
-		t.Errorf("error was not expected while updating stats: %s", err)
-	}
-	for _, p := range *point {
-		t.Logf("%v: %v", p.Name, p.AllottedWastewaterTotal)
-	}
-
-	if !EqualFloat(*c, *centre) {
-		t.Errorf("error wrong dataPoint centre, should: %v, get: %v", centre, c)
-	}
-	// we make sure that all expectations were met
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.d.SetDB(tt.args.db)
+		})
 	}
 }
 
-func TestDatabase_GetMapError(t *testing.T) {
-	var mock sqlmock.Sqlmock
-	var err error
-	db := new(Database)
-	db.db, mock, err = sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+func TestDatabase_Error(t *testing.T) {
+	tests := []struct {
+		name string
+		d    *Database
+		want string
+	}{
+		// TODO: Add test cases.
 	}
-
-	mock.ExpectQuery("[a-z]*").WithArgs(45).WillReturnRows(sqlmock.NewRows([]string{"lat", "long"}))
-
-	_, _, err = db.GetMap(45)
-	if err != sql.ErrNoRows {
-		t.Errorf("error was not expected while updating stats: %s", err)
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.d.Error(); got != tt.want {
+				t.Errorf("Database.Error() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
-func TestDatabase_SelectRegions(t *testing.T) {
-	var mock sqlmock.Sqlmock
-	var err error
-
-	db := new(Database)
-	db.db, mock, err = sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+func TestDatabase_newDatabase(t *testing.T) {
+	tests := []struct {
+		name string
+		d    *Database
+	}{
+		// TODO: Add test cases.
 	}
-	dataSet := []Region{
-		{0, 0, "first", false},
-		{1, 1, "second", true},
-	}
-	rows := sqlmock.NewRows([]string{
-		"id",
-		"num_region",
-		"name",
-		"isTown",
-	})
-	for _, d := range dataSet {
-		rows.AddRow(d.ID, d.NumRegion, d.Name, d.IsTown)
-	}
-
-	mock.ExpectQuery("[a-z]*").WillReturnRows(rows)
-
-	regions, err := db.SelectRegions()
-	if err != nil {
-		t.Errorf("error was not expected while updating stats: %s", err)
-	}
-	if !EqualRegions(regions, dataSet) {
-		t.Errorf("error wrong data centre, should: %v, get: %v", regions, dataSet)
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.d.newDatabase()
+		})
 	}
 }
 
-func EqualRegions(a, b []Region) bool {
-	if len(a) != len(b) {
-		return false
+func TestGetDatabase(t *testing.T) {
+	tests := []struct {
+		name string
+		want *Database
+	}{
+		// TODO: Add test cases.
 	}
-	for i, v := range a {
-		if v != b[i] {
-			return false
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetDatabase(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetDatabase() = %v, want %v", got, tt.want)
+			}
+		})
 	}
-	return true
 }
 
-func EqualFloat(a, b [2]float64) bool {
-	for i, v := range a {
-		if v != b[i] {
-			return false
-		}
+func TestDatabase_connectMSSQL(t *testing.T) {
+	tests := []struct {
+		name    string
+		d       *Database
+		wantErr bool
+	}{
+		// TODO: Add test cases.
 	}
-	return true
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.d.connectMSSQL(); (err != nil) != tt.wantErr {
+				t.Errorf("Database.connectMSSQL() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestDatabase_GetRegionInfo(t *testing.T) {
+	type args struct {
+		id int
+	}
+	tests := []struct {
+		name    string
+		d       *Database
+		args    args
+		want    *RegionInfo
+		want1   bool
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1, err := tt.d.GetRegionInfo(tt.args.id)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Database.GetRegionInfo() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Database.GetRegionInfo() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("Database.GetRegionInfo() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
 }
