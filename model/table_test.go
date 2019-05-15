@@ -1,8 +1,13 @@
 package model
 
 import (
+	"crypto/md5"
+	"fmt"
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/DATA-DOG/go-sqlmock"
 )
 
 func TestDatabase_GetTable(t *testing.T) {
@@ -39,12 +44,33 @@ func TestDatabase_GetPrivilege(t *testing.T) {
 		keyUser   string
 		idTable   int
 	}
-//	dbDefaultTrue, mockDefultTrue, err := Init()
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	mock.de
 
+	dbDefaultTrue, mockDefultTrue, err := Init()
+	if err != nil {
+		t.Error(err)
+	}
+	mockDefultTrue.ExpectQuery("[a-z]*").WillReturnRows(sqlmock.NewRows([]string{"isAccess"}).AddRow(true))
+
+	dbDefaultFalse, mockDefultFalse, err := Init()
+	if err != nil {
+		t.Error(err)
+	}
+	mockDefultFalse.ExpectQuery("[a-z]*").WillReturnRows(sqlmock.NewRows([]string{"isAccess"}).AddRow(false))
+	dbWithUser, mockWithUser, err := Init()
+	if err != nil {
+		t.Error(err)
+	}
+	mockWithUser.ExpectQuery("[a-z]*").
+		WillReturnRows(sqlmock.NewRows([]string{"isAcccess"}).AddRow(false))
+	dtTestRegUser := time.Date(2006, 5, 10, 10, 10, 10, 10, time.Local)
+	mockWithUser.ExpectQuery("[a-z]*").
+		WillReturnRows(
+			sqlmock.NewRows([]string{"id", "email"}).AddRow(100, dtTestRegUser),
+		)
+	mockWithUser.ExpectQuery("[a-z]*").
+		WillReturnRows(
+			sqlmock.NewRows([]string{"true"}).AddRow(true),
+		)
 	tests := []struct {
 		name    string
 		d       *Database
@@ -53,7 +79,19 @@ func TestDatabase_GetPrivilege(t *testing.T) {
 		wantErr error
 	}{
 		{name: "Test error", d: &Database{err: errorStub}, want: false, wantErr: errorStub},
-	//	{name: "Empty email",}
+		{name: "Empty email", d: dbDefaultTrue, want: true, wantErr: nil},
+		{name: "Non access", d: dbDefaultFalse, want: false, wantErr: nil},
+		{
+			name: "With email",
+			d:    dbWithUser,
+			args: args{
+				emailUser: "test@mail.ru",
+				idTable:   100,
+				keyUser:   fmt.Sprintf("%X", md5.Sum([]byte(fmt.Sprint(dtTestRegUser.Unix()+int64(100)+int64(time.Now().Month()))))),
+			},
+			want:    true,
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -69,33 +107,35 @@ func TestDatabase_GetPrivilege(t *testing.T) {
 	}
 }
 
-func TestDatabase_GetTablesInfo(t *testing.T) {
-	tests := []struct {
-		name    string
-		d       *Database
-		want    map[int]TableInfo
-		wantErr error
-	}{
-		{name: "Test error", d: &Database{err: errorStub}, want: nil, wantErr: errorStub},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.d.GetTablesInfo()
-			if err != tt.wantErr {
-				t.Errorf("Database.GetTablesInfo() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Database.GetTablesInfo() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestDatabase_GetHeaders(t *testing.T) {
 	type args struct {
 		idTable int
 	}
+	var idTable = 45
+
+	dbNtvHeaders, mockNtvHeaders, err := Init()
+	if err != nil {
+		t.Error(err)
+	}
+	rowsNtvHeaders := sqlmock.NewRows([]string{"dbName", "VisName", "Header"}).
+		AddRow("test", "тест", nil).
+		AddRow("I`m DBNAME", "I`m VISNAME", nil)
+	mockNtvHeaders.ExpectQuery("[a-z]*").WithArgs(idTable).WillReturnRows(rowsNtvHeaders)
+	wantedNtvHeaders := new(Headers)
+	wantedNtvHeaders.Columns = make(map[string]string)
+	wantedNtvHeaders.Columns["test"] = "тест"
+	wantedNtvHeaders.Columns["I`m DBNAME"] = "I`m VISNAME"
+
+	dbHTMLHeaders, mockHTMLHeaders, err := Init()
+	if err != nil {
+		t.Log(err)
+	}
+	rowsHTMLHeaders := sqlmock.NewRows([]string{"dbName", "VisName", "Header"}).
+		AddRow("foo", "bar", "<h1>I`m HTML header</h1>")
+	mockHTMLHeaders.ExpectQuery("[a-z]*").WithArgs(idTable).WillReturnRows(rowsHTMLHeaders)
+	wantedHTMLHeaders := new(Headers)
+	wantedHTMLHeaders.HTML = "<h1>I`m HTML header</h1>"
+
 	tests := []struct {
 		name    string
 		d       *Database
@@ -104,6 +144,8 @@ func TestDatabase_GetHeaders(t *testing.T) {
 		wantErr error
 	}{
 		{name: "Test error", d: &Database{err: errorStub}, want: nil, wantErr: errorStub},
+		{name: "Test native header", d: dbNtvHeaders, args: args{idTable: idTable}, want: wantedNtvHeaders, wantErr: nil},
+		{name: "Test HTML header", d: dbHTMLHeaders, args: args{idTable: idTable}, want: wantedHTMLHeaders, wantErr: nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -124,6 +166,21 @@ func TestDatabase_GetTextForEmptyTable(t *testing.T) {
 		idRegion int
 		idTable  int
 	}
+	stubArg := args{idTable: 10, idRegion: 43}
+
+	dbEmpty, mockEmpty, err := Init()
+	if err != nil {
+		t.Error(err)
+	}
+	mockEmpty.ExpectQuery("[a-z]*").WithArgs(stubArg.idTable, stubArg.idRegion).WillReturnRows(sqlmock.NewRows([]string{""}))
+
+	dbNmpt, mockNmpt, err := Init()
+	if err != nil {
+		t.Error(err)
+	}
+	rowsNmpt := sqlmock.NewRows([]string{"empty_text"}).AddRow("FOO_BAR")
+	mockNmpt.ExpectQuery("[a-z]*").WithArgs(stubArg.idTable, stubArg.idRegion).WillReturnRows(rowsNmpt)
+
 	tests := []struct {
 		name    string
 		d       *Database
@@ -132,6 +189,8 @@ func TestDatabase_GetTextForEmptyTable(t *testing.T) {
 		wantErr error
 	}{
 		{name: "Test error", d: &Database{err: errorStub}, want: "", wantErr: errorStub},
+		{name: "Test empty", d: dbEmpty, args: stubArg, want: "", wantErr: nil},
+		{name: "Test not empty", d: dbNmpt, args: stubArg, want: "FOO_BAR", wantErr: nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

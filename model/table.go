@@ -110,18 +110,19 @@ func (d *Database) GetPrivilege(emailUser, keyUser string, idTable int) (bool, e
 			from eco_2018.Table_0_6_Access_Right
 			where ID_Role = 1009`, idTable)
 
-	if emailUser == "" {
-		if err := d.db.QueryRow(queryDefault).Scan(&isAccess); err != nil {
-			return false, err
-		}
+	if err := d.db.QueryRow(queryDefault).Scan(&isAccess); err != nil {
+		return false, err
+	}
+	if isAccess || emailUser == "" {
 		return isAccess, nil
 	}
+
 	if err := d.db.QueryRow("select ID_USER_User, DateRegistered from USER_User where EMail = ?", emailUser).Scan(&idUser, &dateRegisteredUser); err != nil {
 		return false, err
 	}
 	verificationSum := fmt.Sprint(dateRegisteredUser.Unix() + int64(idUser) + int64(time.Now().Month()))
 	if fmt.Sprintf("%X", md5.Sum([]byte(verificationSum))) != keyUser {
-		return false, nil
+		return isAccess, nil
 	}
 	query := fmt.Sprintf(`SELECT top 1  T_%v
 	FROM eco_2018.Table_0_8_Users eu
@@ -130,42 +131,12 @@ func (d *Database) GetPrivilege(emailUser, keyUser string, idTable int) (bool, e
 	where u.EMail = @email`, idTable)
 	err := d.db.QueryRow(query, sql.Named("email", emailUser)).Scan(&isAccess)
 	if err == sql.ErrNoRows {
-		if err := d.db.QueryRow(queryDefault).Scan(&isAccess); err != nil {
-			return false, err
-		}
 		return isAccess, nil
 	}
-	if err == nil {
+	if err != nil {
 		return false, err
 	}
 	return isAccess, nil
-}
-
-// GetTablesInfo получение данных с базы
-func (d *Database) GetTablesInfo() (map[int]TableInfo, error) {
-	if d.err != nil {
-		return nil, d.err
-	}
-
-	rows, err := d.db.Query(sqlGetTables)
-	if err != nil {
-		return nil, fmt.Errorf("[db] query %v", err)
-	}
-
-	t := make(map[int]TableInfo)
-
-	for rows.Next() {
-		row := struct {
-			id      int
-			dbName  string
-			visName string
-		}{}
-		if err := rows.Scan(&row.id, &row.dbName, &row.visName); err != nil {
-			return nil, fmt.Errorf("[db] scan %v", err)
-		}
-		t[row.id] = TableInfo{row.dbName, row.visName}
-	}
-	return t, nil
 }
 
 // GetHeaders получение данных с базы
@@ -178,7 +149,6 @@ func (d *Database) GetHeaders(idTable int) (*Headers, error) {
 		return nil, err
 	}
 	headers := new(Headers)
-	headers.Columns = make(map[string]string)
 	for rows.Next() {
 		row := struct {
 			dbName     string
@@ -192,6 +162,9 @@ func (d *Database) GetHeaders(idTable int) (*Headers, error) {
 		if row.htmlHeader.Valid {
 			headers.HTML = row.htmlHeader.String
 			continue
+		}
+		if headers.Columns == nil {
+			headers.Columns = make(map[string]string)
 		}
 		headers.Columns[row.dbName] = row.visName
 	}

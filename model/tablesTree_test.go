@@ -27,6 +27,29 @@ func TestGetTree(t *testing.T) {
 	}
 }
 
+func TestDatabase_GetTablesInfo(t *testing.T) {
+	tests := []struct {
+		name    string
+		d       *Database
+		want    map[int]TableInfo
+		wantErr error
+	}{
+		{name: "Test error", d: &Database{err: errorStub}, want: nil, wantErr: errorStub},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.d.GetTablesInfo()
+			if err != tt.wantErr {
+				t.Errorf("Database.GetTablesInfo() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Database.GetTablesInfo() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestEpTree_load(t *testing.T) {
 	type args struct {
 		path string

@@ -22,6 +22,33 @@ type nodeEpTree struct {
 	TreeItem  []*nodeEpTree `xml:"TreeItem"  json:",omitempty"`
 }
 
+// GetTablesInfo получение данных с базы
+func (d *Database) GetTablesInfo() (map[int]TableInfo, error) {
+	if d.err != nil {
+		return nil, d.err
+	}
+
+	rows, err := d.db.Query(sqlGetTables)
+	if err != nil {
+		return nil, fmt.Errorf("[db] query %v", err)
+	}
+
+	t := make(map[int]TableInfo)
+
+	for rows.Next() {
+		row := struct {
+			id      int
+			dbName  string
+			visName string
+		}{}
+		if err := rows.Scan(&row.id, &row.dbName, &row.visName); err != nil {
+			return nil, fmt.Errorf("[db] scan %v", err)
+		}
+		t[row.id] = TableInfo{row.dbName, row.visName}
+	}
+	return t, nil
+}
+
 // GetTree get table tree
 func GetTree() (EpTree, error) {
 	res := struct {
