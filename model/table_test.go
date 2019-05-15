@@ -15,6 +15,28 @@ func TestDatabase_GetTable(t *testing.T) {
 		regionID int
 		tableID  int
 	}
+	stubArgs := args{19, 19}
+	db, mock, err := Init()
+	if err != nil {
+		t.Log(err)
+	}
+	headerRows := sqlmock.NewRows([]string{"db_name", "vis_name", "html"}).
+		AddRow("foo", "фу", nil).
+		AddRow("bar", "бар", nil).
+		AddRow("foobar", "фубар", nil)
+	valueRows := sqlmock.NewRows([]string{"foo", "bar", "foobar"}).
+		AddRow("00", "01", "02").
+		AddRow("10", "11", "12")
+	mock.ExpectQuery("[a-z]*").WithArgs(stubArgs.regionID, stubArgs.tableID).WillReturnRows(valueRows)
+	mock.ExpectQuery("[a-z]*").WithArgs(stubArgs.tableID).WillReturnRows(headerRows)
+	mock.ExpectQuery("[a-z]*").WithArgs(stubArgs.tableID, stubArgs.regionID).WillReturnRows(sqlmock.NewRows([]string{""}))
+	want := new(Table)
+	want.Value = [][]string{
+		{"00", "01", "02"},
+		{"10", "11", "12"},
+	}
+	want.Header = []string{"фу", "бар", "фубар"}
+
 	tests := []struct {
 		name    string
 		d       *Database
@@ -23,6 +45,7 @@ func TestDatabase_GetTable(t *testing.T) {
 		wantErr error
 	}{
 		{name: "Test error", d: &Database{err: errorStub}, want: nil, wantErr: errorStub},
+		{name: "Test with mock", d: db, args: stubArgs, want: want, wantErr: nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

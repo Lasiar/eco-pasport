@@ -57,7 +57,7 @@ func (d *Database) GetTable(regionID, tableID int) (*Table, error) {
 	if err != nil {
 		return nil, fmt.Errorf("[db] column %v", err)
 	}
-	headers, err := GetDatabase().GetHeaders(tableID)
+	headers, err := d.GetHeaders(tableID)
 	if err != nil {
 		return nil, fmt.Errorf("[db] получение заголовгов: %v", err)
 	}
