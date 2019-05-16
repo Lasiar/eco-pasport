@@ -3,19 +3,19 @@ image: golang:1.9
 cache:
   paths:
     - /apt-cache
-    - /home/gitlab-runner/go/src/github.com
-    - /home/gitlab-runner//go/src/golang.org
-    - /home/gitlab-runner//go/src/google.golang.org
-    - /home/gitlab-runner//go/src/gopkg.in
+    - /go/src/github.com
+    - /go/src/golang.org
+    - /go/src/google.golang.org
+    - /go/src/gopkg.in
 
 stages:
   - test
   - build
 
 before_script:
-  - mkdir -p /home/gitlab-runner/go/src/gitlab.com/pantomath-io /home/gitlab-runner/go/src/_/builds
-  - cp -r $CI_PROJECT_DIR /home/gitlab-runner/go/src/EcoPasport
-  - ln -s /home/gitlab-runner/go/src/ /home/gitlab-runner/go/src/_/builds/
+  - mkdir -p /go/src/gitlab.com/pantomath-io /go/src/_/builds
+  - cp -r $CI_PROJECT_DIR /go/src/EcoPasport
+  - ln -s /go/src/gitlab.com/pantomath-io /go/src/_/builds/pantomath-io
   - make dep
 
 unit_tests:
