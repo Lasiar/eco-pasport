@@ -16,7 +16,7 @@ before_script:
   - export GOPATH=/go
   - mkdir -p /go/src/ /go/src/_/builds
   - sudo cp -r $CI_PROJECT_DIR /go/src/
-  - sudoln -s /go/src/ /go/src/_/builds/pantomath-io
+  - sudo ln -s /go/src/ /go/src/_/builds/pantomath-io
   - go get -u golang.org/x/lint/golint
   - sudo make dep
 
