@@ -36,11 +36,6 @@ race_detector:
   script:
     - sudo -E make race
 
-lint_code:
-  stage: test
-  script:
-    - sudo -E make lint
-
 build:
   stage: build
   script:
