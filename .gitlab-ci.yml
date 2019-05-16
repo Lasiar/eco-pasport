@@ -18,6 +18,7 @@ before_script:
   - sudo mkdir -p /go/src/ /go/src/_/builds
   - sudo cp -r $CI_PROJECT_DIR /go/src/
   - sudo go get -u golang.org/x/lint/golint
+  - echo $GOPATH
   - sudo make dep
 
 unit_tests:
