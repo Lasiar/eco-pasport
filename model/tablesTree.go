@@ -1,7 +1,7 @@
 package model
 
 import (
-	"EcoPasport/base"
+	"eco-passport-back/base"
 	"encoding/xml"
 	"errors"
 	"fmt"

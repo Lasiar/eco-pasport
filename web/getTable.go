@@ -1,8 +1,8 @@
 package web
 
 import (
-	"EcoPasport/model"
-	"EcoPasport/web/context"
+	"eco-passport-back/model"
+	"eco-passport-back/web/context"
 	"encoding/base64"
 	"fmt"
 	"net/http"

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"EcoPasport/web"
+	"eco-passport-back/web"
 )
 
 func main() {

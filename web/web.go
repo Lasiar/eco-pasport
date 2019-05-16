@@ -1,9 +1,10 @@
 package web
 
 import (
-	"EcoPasport/base"
-	"EcoPasport/web/context"
+
 	"database/sql"
+	"eco-passport-back/base"
+	"eco-passport-back/web/context"
 	"encoding/json"
 	"log"
 	"net/http"

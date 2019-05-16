@@ -1,8 +1,8 @@
 package model
 
 import (
-	"EcoPasport/base"
 	"database/sql"
+	"eco-passport-back/base"
 	"fmt"
 	"log"
 	"sync"
