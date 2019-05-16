@@ -19,12 +19,12 @@ before_script:
   - sudo cp -r $CI_PROJECT_DIR /go/src/
   - sudo go get -u golang.org/x/lint/golint
   - echo $GOPATH
-  - make dep
+  - sudo -E make dep
 
 unit_tests:
   stage: test
   script:
-    - sudo make test
+    - sudo -E make test
 
 test:
   stage: test
@@ -34,22 +34,22 @@ test:
 race_detector:
   stage: test
   script:
-    - sudo make race
+    - sudo -E make race
 
 code_coverage:
   stage: test
   script:
-    - sudo make coverage
+    - sudo -E make coverage
 
 lint_code:
   stage: test
   script:
-    -sudo  make lint
+    -sudo -E make lint
 
 build:
   stage: build
   script:
-    -sudo  make
+    -sudo -E make
   artifacts:
     paths:
       - demo-tools

@@ -2,6 +2,7 @@ PROJECT_NAME := "eco-passport-back"
 PKG := "eco-passport-back"
 PKG_LIST := $(shell go list ${PKG}/... | grep -v /vendor/)
 GO_FILES := $(shell find . -name '*.go' | grep -v /vendor/ | grep -v _test.go)
+EXPORT := $(shell export gopath)
 
 all: build
 
