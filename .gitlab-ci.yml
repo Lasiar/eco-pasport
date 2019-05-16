@@ -19,7 +19,7 @@ before_script:
   - sudo cp -r $CI_PROJECT_DIR /go/src/
   - sudo go get -u golang.org/x/lint/golint
   - echo $GOPATH
-  - sudo make dep
+  - make dep
 
 unit_tests:
   stage: test
