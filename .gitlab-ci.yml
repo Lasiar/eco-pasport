@@ -36,20 +36,15 @@ race_detector:
   script:
     - sudo -E make race
 
-code_coverage:
-  stage: test
-  script:
-    - sudo -E make coverage
-
 lint_code:
   stage: test
   script:
-    -sudo -E make lint
+    - sudo -E make lint
 
 build:
   stage: build
   script:
-    -sudo -E make
+    - sudo -E make
   artifacts:
     paths:
       - demo-tools
