@@ -14,7 +14,7 @@ stages:
 
 before_script:
   - export GOPATH=/go
-  - mkdir -p /go/src/ /go/src/_/builds
+  - sudo mkdir -p /go/src/ /go/src/_/builds
   - sudo cp -r $CI_PROJECT_DIR /go/src/
   - sudo mv /go/src/eco-passport-back /go/src/EcoPasport
   - go get -u golang.org/x/lint/golint
