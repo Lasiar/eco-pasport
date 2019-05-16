@@ -2,6 +2,7 @@ package base
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"os"
 	"sync"
@@ -26,20 +27,18 @@ var (
 func GetConfig() *Config {
 	_onceConfig.Do(func() {
 		_config = new(Config)
-		_config.load()
+		file, err := os.Open("config.json")
+		if err != nil {
+			log.Fatal(err)
+		}
+		_config.load(file)
 	})
 	return _config
 }
 
-func (c *Config) load() {
+func (c *Config) load(r io.Reader) {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	confFile, err := os.Open("config.json")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	dc := json.NewDecoder(confFile)
-	if err := dc.Decode(&c); err != nil {
+	if err := json.NewDecoder(r).Decode(&c); err != nil {
 		log.Fatal("Read Config file: ", err)
 	}
 

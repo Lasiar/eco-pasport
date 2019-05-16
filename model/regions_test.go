@@ -51,3 +51,34 @@ func TestDatabase_SelectRegions(t *testing.T) {
 		})
 	}
 }
+
+func TestDatabase_GetRegionInfo(t *testing.T) {
+	type args struct {
+		id int
+	}
+	tests := []struct {
+		name    string
+		d       *Database
+		args    args
+		want    *RegionInfo
+		want1   bool
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1, err := tt.d.GetRegionInfo(tt.args.id)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Database.GetRegionInfo() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Database.GetRegionInfo() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("Database.GetRegionInfo() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}

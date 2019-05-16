@@ -29,9 +29,6 @@ func (d *Database) SetDB(db *sql.DB) {
 	})
 }
 
-func (d *Database) Error() string {
-	return d.err.Error()
-}
 
 func (d *Database) newDatabase() {
 	if err := d.connectMSSQL(); err != nil {
@@ -59,35 +56,3 @@ func (d *Database) connectMSSQL() (err error) {
 	return d.db.Ping()
 }
 
-// GetRegionInfo select info databases
-func (d *Database) GetRegionInfo(id int) (*RegionInfo, bool, error) {
-	if d.err != nil {
-		return nil, false, d.err
-	}
-	regionInfo := new(RegionInfo)
-
-	var (
-		tmpArea sql.NullString
-	)
-	err := d.db.QueryRow(sqlGetInfoRegion, id).Scan(&regionInfo.GeneralInformation.AdminCenter,
-		&regionInfo.GeneralInformation.CreationDate,
-		&regionInfo.GeneralInformation.Population,
-		&tmpArea,
-		&regionInfo.EnvironmentalAssessment.GrossEmissions,
-		&regionInfo.EnvironmentalAssessment.WithdrawnWater,
-		&regionInfo.EnvironmentalAssessment.DischargeVolume,
-		&regionInfo.EnvironmentalAssessment.FormedWaste)
-
-	if err == sql.ErrNoRows {
-		return nil, false, nil
-	}
-	if err != nil {
-		return nil, false, err
-	}
-
-	if tmpArea.Valid {
-		regionInfo.GeneralInformation.Area = tmpArea.String
-	}
-
-	return regionInfo, true, nil
-}

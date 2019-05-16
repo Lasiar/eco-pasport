@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -40,19 +41,16 @@ func TestDatabase_SetDB(t *testing.T) {
 			tt.d.SetDB(tt.args.db)
 		})
 		if !reflect.DeepEqual(tt.d, tt.want) {
-			t.Errorf("Database.GetRegionInfo() got = %v, want %v", tt.d, tt.want)
+			t.Errorf("Database.SetDB() got = %v, want %v", tt.d, tt.want)
 		}
 	}
 }
 
 func TestGetDatabase(t *testing.T) {
-	db, _, err := Init()
-	if err != nil {
-		t.Error(err)
-	}
-
-	db.SetDB(db.db)
-
+	_once.Do(func() {})
+	db := new(Database)
+	db.err = errors.New("foobar")
+	_db = db
 	tests := []struct {
 		name string
 		want *Database
@@ -62,7 +60,7 @@ func TestGetDatabase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := GetDatabase(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetDatabase() = %v, want %v", got, tt.want)
+				t.Errorf("GetDatabase() = %v, want %v", &got, &tt.want)
 			}
 		})
 	}

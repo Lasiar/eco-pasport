@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql"
 	"fmt"
 )
 
@@ -46,4 +47,37 @@ func (d *Database) SelectRegions() ([]Region, error) {
 		regions = append(regions, r)
 	}
 	return regions, nil
+}
+
+// GetRegionInfo select info databases
+func (d *Database) GetRegionInfo(id int) (*RegionInfo, bool, error) {
+	if d.err != nil {
+		return nil, false, d.err
+	}
+	regionInfo := new(RegionInfo)
+
+	var (
+		tmpArea sql.NullString
+	)
+	err := d.db.QueryRow(sqlGetInfoRegion, id).Scan(&regionInfo.GeneralInformation.AdminCenter,
+		&regionInfo.GeneralInformation.CreationDate,
+		&regionInfo.GeneralInformation.Population,
+		&tmpArea,
+		&regionInfo.EnvironmentalAssessment.GrossEmissions,
+		&regionInfo.EnvironmentalAssessment.WithdrawnWater,
+		&regionInfo.EnvironmentalAssessment.DischargeVolume,
+		&regionInfo.EnvironmentalAssessment.FormedWaste)
+
+	if err == sql.ErrNoRows {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+
+	if tmpArea.Valid {
+		regionInfo.GeneralInformation.Area = tmpArea.String
+	}
+
+	return regionInfo, true, nil
 }
