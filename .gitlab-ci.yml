@@ -17,13 +17,13 @@ before_script:
   - sudo mkdir -p /go/src/ /go/src/_/builds
   - sudo cp -r $CI_PROJECT_DIR /go/src/
   - sudo mv /go/src/eco-passport-back /go/src/EcoPasport
-  - go get -u golang.org/x/lint/golint
+  - sudo go get -u golang.org/x/lint/golint
   - sudo make dep
 
 unit_tests:
   stage: test
   script:
-    - make test
+    - sudo make test
 
 test:
   stage: test
@@ -33,34 +33,22 @@ test:
 race_detector:
   stage: test
   script:
-    - make race
-
-memory_sanitizer:
-  stage: test
-  script:
-    - make msan
+    - sudo make race
 
 code_coverage:
   stage: test
   script:
-    - make coverage
-
-code_coverage_report:
-  stage: test
-  script:
-    - make coverhtml
-  only:
-  - master
+    - sudo make coverage
 
 lint_code:
   stage: test
   script:
-    - make lint
+    -sudo  make lint
 
 build:
   stage: build
   script:
-    - make
+    -sudo  make
   artifacts:
     paths:
-    - demo-tools
+      - demo-tools
