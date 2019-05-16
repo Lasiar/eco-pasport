@@ -13,10 +13,10 @@ stages:
   - build
 
 before_script:
-  - mkdir -p /go/src/gitlab.com/pantomath-io /go/src/_/builds
-  - cp -r $CI_PROJECT_DIR /go/src/EcoPasport
-  - ln -s /go/src/gitlab.com/pantomath-io /go/src/_/builds/pantomath-io
-  - make dep
+  - export GOROOT=/usr/local/go
+  - export GOPATH=/home/gitlab-runner/go
+  - export PATH=$PATH:$GOROOT/bin
+
 
 unit_tests:
   stage: test
@@ -48,7 +48,7 @@ code_coverage_report:
   script:
     - make coverhtml
   only:
-  - master
+    - master
 
 lint_code:
   stage: test
@@ -61,4 +61,4 @@ build:
     - make
   artifacts:
     paths:
-    - demo-tools
+      - demo-tools
