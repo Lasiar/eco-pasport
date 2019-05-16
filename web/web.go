@@ -1,7 +1,6 @@
 package web
 
 import (
-
 	"database/sql"
 	"eco-passport-back/base"
 	"eco-passport-back/web/context"

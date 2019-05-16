@@ -17,7 +17,6 @@ before_script:
   - sudo rm -r /go
   - sudo mkdir -p /go/src/ /go/src/_/builds
   - sudo cp -r $CI_PROJECT_DIR /go/src/
-  - sudo mv /go/src/eco-passport-back /go/src/EcoPasport
   - sudo go get -u golang.org/x/lint/golint
   - sudo make dep
 
