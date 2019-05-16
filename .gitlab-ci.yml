@@ -13,16 +13,21 @@ stages:
   - build
 
 before_script:
+  - echo whoami
   - mkdir -p /go/src/gitlab.com/pantomath-io /go/src/_/builds
-  - cp -r $CI_PROJECT_DIR /go/src/gitlab.com/pantomath-io/pantomath
+  - cp -r $CI_PROJECT_DIR /go/src/EcoPasport
   - ln -s /go/src/gitlab.com/pantomath-io /go/src/_/builds/pantomath-io
-  - export CC=clang-5.0
   - make dep
 
 unit_tests:
   stage: test
   script:
     - make test
+
+test:
+  stage: test
+  script:
+    - whoami
 
 race_detector:
   stage: test

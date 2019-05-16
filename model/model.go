@@ -29,7 +29,6 @@ func (d *Database) SetDB(db *sql.DB) {
 	})
 }
 
-
 func (d *Database) newDatabase() {
 	if err := d.connectMSSQL(); err != nil {
 		d.err = fmt.Errorf("[db CONNECT] %v", err)
@@ -55,4 +54,3 @@ func (d *Database) connectMSSQL() (err error) {
 	}
 	return d.db.Ping()
 }
-
