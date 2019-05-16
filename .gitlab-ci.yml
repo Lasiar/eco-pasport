@@ -13,11 +13,12 @@ stages:
   - build
 
 before_script:
+  - export GOPATH=/go
   - mkdir -p /go/src/gitlab.com/vallder /go/src/_/builds
   - cp -r $CI_PROJECT_DIR /go/src/vallder
   - ln -s /go/src/gitlab.com/pantomath-io /go/src/_/builds/pantomath-io
   - go get -u golang.org/x/lint/golint
-  - make dep
+  - sudo make dep
 
 unit_tests:
   stage: test
