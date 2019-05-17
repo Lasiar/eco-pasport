@@ -12,13 +12,12 @@ stages:
   - build
 
 before_script:
-  - export GOPATH=/go
-  - sudo rm -r /go
-  - sudo mkdir -p /go/src/ /go/src/_/builds
-  - sudo cp -r $CI_PROJECT_DIR /go/src/
-  - sudo go get -u golang.org/x/lint/golint
+  - rm -r /go
+  - mkdir -p /go/src/ /go/src/_/builds
+  - cp -r $CI_PROJECT_DIR /go/src/
+  - go get -u golang.org/x/lint/golint
   - echo $GOPATH
-  - sudo -E make dep
+  - make dep
 
 unit_tests:
   stage: test
