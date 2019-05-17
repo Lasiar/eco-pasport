@@ -23,6 +23,8 @@ unit_tests:
   stage: test
   script:
     - sudo -E make test
+  tags:
+    - go
 
 test:
   stage: test
@@ -35,6 +37,8 @@ race_detector:
   stage: test
   script:
     - sudo -E make race
+  tags:
+    - go
 
 build:
   stage: build
