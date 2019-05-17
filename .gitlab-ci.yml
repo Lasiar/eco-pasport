@@ -32,6 +32,11 @@ race_detector:
   tags:
     - go
 
+lint_code:
+  stage: test
+  script:
+    - make lint
+
 build:
   stage: build
   script:
