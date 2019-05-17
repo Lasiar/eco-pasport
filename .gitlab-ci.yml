@@ -42,7 +42,7 @@ lint_code:
 build:
   stage: build
   script:
-    - make
+    - make arg=" -ldflags \"-X main.version=${CI_COMMIT_SHA}\""
   artifacts:
     paths:
       - eco-passport-back
