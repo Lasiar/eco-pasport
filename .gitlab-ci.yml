@@ -1,5 +1,4 @@
 image: golang:1.9
-
 cache:
   paths:
     - /apt-cache
@@ -30,6 +29,8 @@ test:
   stage: test
   script:
     - whoami
+  tags:
+    - go
 
 race_detector:
   stage: test
@@ -43,3 +44,5 @@ build:
   artifacts:
     paths:
       - demo-tools
+  tags:
+    - go
