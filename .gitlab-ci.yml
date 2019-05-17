@@ -36,6 +36,8 @@ lint_code:
   stage: test
   script:
     - make lint
+  tags:
+    - go
 
 build:
   stage: build
