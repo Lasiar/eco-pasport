@@ -38,6 +38,6 @@ build:
     - make
   artifacts:
     paths:
-      - demo-tools
+      - eco-passport-back
   tags:
     - go
