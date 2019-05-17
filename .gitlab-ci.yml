@@ -12,7 +12,6 @@ stages:
   - build
 
 before_script:
-  - rm -r /go
   - mkdir -p /go/src/ /go/src/_/builds
   - cp -r $CI_PROJECT_DIR /go/src/
   - go get -u golang.org/x/lint/golint
@@ -22,28 +21,21 @@ before_script:
 unit_tests:
   stage: test
   script:
-    - sudo -E make test
-  tags:
-    - go
-
-test:
-  stage: test
-  script:
-    - whoami
+    - make test
   tags:
     - go
 
 race_detector:
   stage: test
   script:
-    - sudo -E make race
+    - make race
   tags:
     - go
 
 build:
   stage: build
   script:
-    - sudo -E make
+    - make
   artifacts:
     paths:
       - demo-tools
