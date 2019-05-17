@@ -16,7 +16,6 @@ race: dep ## Run data race detector
 	@go test -race -short ${PKG_LIST}
 
 dep: ## Get the dependencies
-	@go get -v -d ./...
 	@go get  -t -v -d ./...
 
 build: dep ## Build the binary file
